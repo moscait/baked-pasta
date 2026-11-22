@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="770" viewBox="0 0 1000 770" role="img" aria-labelledby="t d" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif">
+<title id="t">Configuration 2: routable OpenZiti infrastructure</title>
+<desc id="d">Administrators reach the Admin Console through Cloudflare Access and an outbound Cloudflare Tunnel; no inbound web port is open on the Linux host. Ziti endpoints and application workloads connect directly to the controller and edge router over mTLS on ports 1280 and 8444, found through a DNS-only record. The management API on 1281 is reachable only inside the container network.</desc>
+<defs>
+<marker id="arr-http" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#9FC2B8"/></marker>
+<marker id="arr-overlay" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#FF7A4D"/></marker>
+</defs>
+<rect width="1000" height="770" rx="14" fill="#0F1A18"/>
+<text x="32" y="42" font-size="19" font-weight="700" fill="#F6ECDC" text-anchor="start">Configuration 2 · Routable infrastructure</text>
+<text x="32" y="63" font-size="12.5" font-weight="400" fill="#A8B8B2" text-anchor="start">No inbound web ports: the console comes in through an outbound tunnel; only OpenZiti mTLS is open.</text>
+<line x1="664" y1="46" x2="690" y2="46" stroke="#9FC2B8" stroke-width="2.5"/>
+<text x="698" y="50" font-size="12" font-weight="600" fill="#A8B8B2" text-anchor="start">HTTP(S)</text>
+<line x1="774" y1="46" x2="800" y2="46" stroke="#FF7A4D" stroke-width="2.5"/>
+<text x="808" y="50" font-size="12" font-weight="600" fill="#A8B8B2" text-anchor="start">OpenZiti mTLS overlay</text>
+<rect x="40" y="96" width="300" height="76" rx="10" fill="#1E322C" stroke="#3D5A53" stroke-width="1.5"/>
+<text x="56" y="122" font-size="15" font-weight="650" fill="#F6ECDC" text-anchor="start">Administrator browser</text>
+<text x="56" y="143" font-size="12.5" font-weight="400" fill="#A8B8B2" text-anchor="start">https://zt.example.com</text>
+<rect x="660" y="96" width="300" height="76" rx="10" fill="#1E322C" stroke="#3D5A53" stroke-width="1.5"/>
+<text x="676" y="122" font-size="15" font-weight="650" fill="#F6ECDC" text-anchor="start">Ziti endpoints</text>
+<text x="676" y="143" font-size="12.5" font-weight="400" fill="#A8B8B2" text-anchor="start">iPhone, Android, laptops with Ziti Edge</text>
+<rect x="40" y="212" width="420" height="96" rx="10" fill="#1E322C" stroke="#3D5A53" stroke-width="1.5"/>
+<text x="56" y="238" font-size="15" font-weight="650" fill="#F6ECDC" text-anchor="start">Cloudflare edge</text>
+<text x="56" y="259" font-size="12.5" font-weight="400" fill="#A8B8B2" text-anchor="start">Access policy: SSO or email one-time PIN</text>
+<text x="56" y="277" font-size="12.5" font-weight="400" fill="#A8B8B2" text-anchor="start">Tunnel ingress for zt.example.com</text>
+<rect x="540" y="212" width="300" height="96" rx="10" fill="#1E322C" stroke="#3D5A53" stroke-width="1.5"/>
+<text x="556" y="238" font-size="15" font-weight="650" fill="#F6ECDC" text-anchor="start">Public DNS (DNS-only record)</text>
+<text x="556" y="259" font-size="12.5" font-weight="400" fill="#A8B8B2" text-anchor="start">ziti.example.com → host public IP</text>
+<text x="556" y="277" font-size="12.5" font-weight="400" fill="#A8B8B2" text-anchor="start">kept current by openziti-ddns</text>
+<rect x="24" y="352" width="952" height="262" rx="14" fill="#15241F" stroke="#2A3F39" stroke-width="1.5"/>
+<text x="288" y="378" font-size="11.5" font-weight="700" fill="#A8B8B2" text-anchor="start" letter-spacing="0.08em">LINUX HOST (FEDORA / UBUNTU) · INBOUND: 22, 1280, 8444 ONLY</text>
+<rect x="56" y="400" width="200" height="92" rx="10" fill="#1E322C" stroke="#3D5A53" stroke-width="1.5"/>
+<text x="72" y="426" font-size="15" font-weight="650" fill="#F6ECDC" text-anchor="start" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace">cloudflared</text>
+<text x="72" y="447" font-size="12.5" font-weight="400" fill="#A8B8B2" text-anchor="start">Outbound QUIC/TLS tunnel</text>
+<rect x="288" y="400" width="220" height="92" rx="10" fill="#1E322C" stroke="#3D5A53" stroke-width="1.5"/>
+<text x="304" y="426" font-size="15" font-weight="650" fill="#F6ECDC" text-anchor="start" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace">openziti-console</text>
+<text x="304" y="447" font-size="12.5" font-weight="400" fill="#A8B8B2" text-anchor="start">nginx + Admin Console</text>
+<rect x="304" y="462" width="114" height="20" rx="10" fill="#3B3220"/>
+<text x="361.0" y="476" font-size="11.5" font-weight="600" fill="#FBE3A6" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace">127.0.0.1:8080</text>
+<rect x="540" y="400" width="404" height="100" rx="10" fill="#1E322C" stroke="#3D5A53" stroke-width="1.5"/>
+<text x="556" y="426" font-size="15" font-weight="650" fill="#F6ECDC" text-anchor="start" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace">ziti-controller</text>
+<text x="556" y="447" font-size="12.5" font-weight="400" fill="#A8B8B2" text-anchor="start">Controller + edge router (quickstart, automatic PKI)</text>
+<rect x="556" y="470" width="100" height="20" rx="10" fill="#3B3220"/>
+<text x="606.0" y="484" font-size="11.5" font-weight="600" fill="#FBE3A6" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace">:1280 client</text>
+<rect x="662" y="470" width="100" height="20" rx="10" fill="#3B3220"/>
+<text x="712.0" y="484" font-size="11.5" font-weight="600" fill="#FBE3A6" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace">:8444 router</text>
+<rect x="768" y="470" width="163" height="20" rx="10" fill="#3B3220"/>
+<text x="849.5" y="484" font-size="11.5" font-weight="600" fill="#FBE3A6" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace">:1281 mgmt (internal)</text>
+<rect x="56" y="524" width="200" height="72" rx="10" fill="#1E322C" stroke="#3D5A53" stroke-width="1.5"/>
+<text x="72" y="550" font-size="15" font-weight="650" fill="#F6ECDC" text-anchor="start" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace">openziti-ddns</text>
+<text x="72" y="571" font-size="12.5" font-weight="400" fill="#A8B8B2" text-anchor="start">Optional · updates the A record</text>
+<text x="288" y="548" font-size="12.5" font-weight="400" fill="#A8B8B2" text-anchor="start">The management API (1281) is never</text>
+<text x="288" y="566" font-size="12.5" font-weight="400" fill="#A8B8B2" text-anchor="start">published on the host; only the</text>
+<text x="288" y="584" font-size="12.5" font-weight="400" fill="#A8B8B2" text-anchor="start">console reaches it.</text>
+<rect x="40" y="662" width="920" height="84" rx="10" fill="#1E322C" stroke="#3D5A53" stroke-width="1.5"/>
+<text x="56" y="688" font-size="15" font-weight="650" fill="#F6ECDC" text-anchor="start">Application workloads</text>
+<text x="56" y="709" font-size="12.5" font-weight="400" fill="#A8B8B2" text-anchor="start">Containers on your workstation, servers in other clouds, edge devices</text>
+<text x="56" y="727" font-size="12.5" font-weight="400" fill="#A8B8B2" text-anchor="start">Embedded OpenZiti SDK or tunneler · no inbound ports needed</text>
+<path d="M190 172 L190 212" fill="none" stroke="#9FC2B8" stroke-width="2" stroke-linejoin="round" marker-end="url(#arr-http)"/>
+<rect x="166.5" y="181" width="47" height="20" rx="10" fill="#0F1A18" stroke="#9FC2B8" stroke-width="1"/>
+<text x="190" y="195.5" font-size="11.5" font-weight="600" fill="#9FC2B8" text-anchor="middle">HTTPS</text>
+<path d="M156 400 L156 308" fill="none" stroke="#9FC2B8" stroke-width="2" stroke-linejoin="round" marker-end="url(#arr-http)" marker-start="url(#arr-http)"/>
+<rect x="99.5" y="341" width="113" height="20" rx="10" fill="#0F1A18" stroke="#9FC2B8" stroke-width="1"/>
+<text x="156" y="355.5" font-size="11.5" font-weight="600" fill="#9FC2B8" text-anchor="middle">outbound tunnel</text>
+<path d="M256 446 L288 446" fill="none" stroke="#9FC2B8" stroke-width="2" stroke-linejoin="round" marker-end="url(#arr-http)"/>
+<path d="M508 446 L540 446" fill="none" stroke="#9FC2B8" stroke-width="2" stroke-linejoin="round" marker-end="url(#arr-http)"/>
+<path d="M720 172 L720 212" fill="none" stroke="#9FC2B8" stroke-width="2" stroke-linejoin="round" stroke-dasharray="5 4" marker-end="url(#arr-http)"/>
+<rect x="690.0" y="181" width="60" height="20" rx="10" fill="#0F1A18" stroke="#9FC2B8" stroke-width="1"/>
+<text x="720" y="195.5" font-size="11.5" font-weight="600" fill="#9FC2B8" text-anchor="middle">resolve</text>
+<path d="M900 172 L900 400" fill="none" stroke="#FF7A4D" stroke-width="2" stroke-linejoin="round" marker-end="url(#arr-overlay)"/>
+<rect x="821.5" y="319" width="133" height="20" rx="10" fill="#0F1A18" stroke="#FF7A4D" stroke-width="1"/>
+<text x="888" y="333.5" font-size="11.5" font-weight="600" fill="#FF7A4D" text-anchor="middle">mTLS :1280 / :8444</text>
+<path d="M740 662 L740 500" fill="none" stroke="#FF7A4D" stroke-width="2" stroke-linejoin="round" marker-end="url(#arr-overlay)"/>
+<rect x="670.5" y="629" width="139" height="20" rx="10" fill="#0F1A18" stroke="#FF7A4D" stroke-width="1"/>
+<text x="740" y="643.5" font-size="11.5" font-weight="600" fill="#FF7A4D" text-anchor="middle">outbound mTLS :8444</text>
+</svg>

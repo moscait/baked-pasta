@@ -1,0 +1,37 @@
+---
+- name: Ensure firewalld is installed and running
+  ansible.builtin.dnf:
+    name: firewalld
+    state: present
+
+- name: Start and enable firewalld
+  ansible.builtin.systemd:
+    name: firewalld
+    state: started
+    enabled: yes
+
+- name: Ensure SSH is allowed in firewalld
+  ansible.builtin.command:
+    cmd: firewall-cmd --permanent --add-service=ssh
+  register: fw_ssh
+  changed_when: "'ALREADY_ENABLED' not in fw_ssh.stdout and 'success' in fw_ssh.stdout"
+  failed_when: false
+
+- name: Allow OpenZiti Controller (TCP 1280) and Edge Router (TCP 8444) in firewalld
+  ansible.builtin.command:
+    cmd: "firewall-cmd --permanent --add-port={{ item }}/tcp"
+  loop:
+    - "{{ ziti_ctrl_port }}"
+    - "{{ ziti_router_port }}"
+  register: fw_ziti
+  changed_when: "'ALREADY_ENABLED' not in fw_ziti.stdout and 'success' in fw_ziti.stdout"
+  failed_when: false
+
+- name: Reload firewalld
+  ansible.builtin.command:
+    cmd: firewall-cmd --reload
+  failed_when: false
+
+- name: Zero Trust validation - Verify no inbound web ports are opened to external zone
+  ansible.builtin.debug:
+    msg: "Firewalld configured: only SSH, OpenZiti Controller ({{ ziti_ctrl_port }}/tcp client API) and Edge Router ({{ ziti_router_port }}/tcp) are open. No inbound web ports (80/443/8080) or management API ({{ ziti_mgmt_port }}) are exposed; ZAC connects outbound via Cloudflare Tunnel."

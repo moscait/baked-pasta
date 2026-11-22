@@ -1,0 +1,8 @@
+{
+  "name": "console-demo",
+  "private": true,
+  "description": "Records the Access Canvas demo video",
+  "dependencies": {
+    "playwright": "1.65.1"
+  }
+}

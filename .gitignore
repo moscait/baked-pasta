@@ -1,0 +1,64 @@
+# Maven build output
+**/target/
+
+# IDE and project files
+.idea/
+.vscode/
+.settings/
+.project
+.classpath
+*.iml
+.DS_Store
+
+# Vaadin generated files
+**/node_modules/
+**/src/main/frontend/generated/
+**/vite.generated.ts
+
+# OpenZiti local configuration and identities
+config/
+
+*.log
+
+# OpenZiti Admin Console builds: downloaded and checksum-verified by scripts/fetch-console.sh
+# (or built by scripts/build-console.sh), never committed
+menu/zac/
+infrastructure/console/
+
+# Temporary heartbeat files
+menu/zt-app-heartbeat.txt
+
+# OpenZiti Infrastructure environment, credentials & Terraform / OpenTofu state
+.ziti-credentials
+.env
+.env.*
+!.env.example
+*.tfstate
+*.tfstate.*
+*.tfplan
+.terraform/
+# .terraform.lock.hcl is committed on purpose: it pins provider versions and checksums.
+# Any variables file (terraform.tfvars, *.auto.tfvars, prod.tfvars, ...); templates stay tracked
+*.tfvars
+*.tfvars.json
+!*.tfvars.example
+
+# Whole-repo dumps (may capture ignored secrets if regenerated)
+repomix-output*
+
+# Private keys, enrollment tokens and identities must never be committed
+*.key
+*.jwt
+*-identity.json
+zt-app/HelloZiti-host.json
+.deploy-secrets
+# PEM keys/certs (OCI API keys are .pem), keystores and SSH keys
+*.pem
+*.crt
+*.p12
+*.pfx
+*.jks
+*.keystore
+id_rsa*
+id_ecdsa*
+id_ed25519*

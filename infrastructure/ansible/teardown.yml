@@ -1,0 +1,126 @@
+---
+# ==============================================================================
+# Tear down the OpenZiti Zero-Trust Infrastructure (Fedora & Ubuntu)
+# ==============================================================================
+# Stops and removes the stack deployed by playbook.yml.
+#
+# By default this is a FULL teardown:
+#   - Removes all stack containers and the openziti-network
+#   - Deletes the ziti-pki-data volume (controller PKI, identities, enrollments)
+#   - Deletes the install directory (.env, tunnel token, .ziti-credentials)
+#
+# Pass -e "keep_data=true" to stop/remove containers only, preserving the PKI
+# volume and install directory so a later redeploy reuses the same controller.
+#
+# Not reverted: container runtime installation and firewall hardening.
+# Cloudflare resources (tunnel, DNS, Access app) must be removed separately.
+# ==============================================================================
+- name: Tear down OpenZiti Zero-Trust Infrastructure (Fedora & Ubuntu)
+  hosts: all
+  become: yes
+  vars_files:
+    - vars/main.yml
+  vars:
+    keep_data: false
+    compose_project: "openziti"
+    pki_volume: "{{ compose_project }}_ziti-pki-data"
+    stack_network: "openziti-network"
+    stack_containers:
+      - openziti-ddns
+      - openziti-tunnel
+      - openziti-console
+      - ziti-setup
+      - ziti-controller.local
+      # Legacy container names from earlier versions of this stack
+      - homelab-app
+      - homelab-portal
+      - homelab-tunnel
+
+  tasks:
+    - name: Check for compose file
+      ansible.builtin.stat:
+        path: "{{ ziti_install_dir }}/docker-compose.yaml"
+      register: compose_file
+
+    - name: Stop stack with compose
+      when: compose_file.stat.exists
+      ansible.builtin.shell: |
+        VOL_FLAG="{{ '' if (keep_data | bool) else '-v' }}"
+        if command -v podman-compose >/dev/null 2>&1; then
+          podman-compose -f docker-compose.yaml down $VOL_FLAG
+        elif command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then
+          docker compose down $VOL_FLAG --remove-orphans
+        elif command -v podman >/dev/null 2>&1; then
+          podman compose -f docker-compose.yaml down $VOL_FLAG
+        elif command -v docker-compose >/dev/null 2>&1; then
+          docker-compose down $VOL_FLAG --remove-orphans
+        fi
+      args:
+        chdir: "{{ ziti_install_dir }}"
+      register: compose_down_result
+      failed_when: false
+
+    - name: Force-remove any remaining stack containers
+      ansible.builtin.shell: |
+        for rt in podman docker; do
+          if command -v "$rt" >/dev/null 2>&1; then
+            "$rt" rm -f {{ stack_containers | join(' ') }} 2>/dev/null || true
+          fi
+        done
+      failed_when: false
+      changed_when: false
+
+    - name: Remove stack network
+      ansible.builtin.shell: |
+        for rt in podman docker; do
+          if command -v "$rt" >/dev/null 2>&1; then
+            "$rt" network rm {{ stack_network }} 2>/dev/null || true
+          fi
+        done
+      failed_when: false
+      changed_when: false
+
+    - name: Remove OpenZiti PKI volume
+      when: not (keep_data | bool)
+      ansible.builtin.shell: |
+        for rt in podman docker; do
+          if command -v "$rt" >/dev/null 2>&1; then
+            "$rt" volume rm -f {{ pki_volume }} 2>/dev/null || true
+          fi
+        done
+      failed_when: false
+      changed_when: false
+
+    - name: Remove install directory
+      when: not (keep_data | bool)
+      ansible.builtin.file:
+        path: "{{ ziti_install_dir }}"
+        state: absent
+
+    - name: Check for leftover stack containers
+      ansible.builtin.shell: |
+        if command -v podman >/dev/null 2>&1; then
+          podman ps -a --format '{{ '{{' }}.Names{{ '}}' }}'
+        elif command -v docker >/dev/null 2>&1; then
+          docker ps -a --format '{{ '{{' }}.Names{{ '}}' }}'
+        fi
+      register: leftover_ps
+      changed_when: false
+      failed_when: false
+
+    - name: Output teardown summary
+      ansible.builtin.debug:
+        msg:
+          - "================================================================="
+          - "🧹 OpenZiti Zero-Trust Infrastructure has been torn down."
+          - "-----------------------------------------------------------------"
+          - "Containers removed:  {{ stack_containers | join(', ') }}"
+          - "Network removed:     {{ stack_network }}"
+          - "PKI volume:          {{ 'PRESERVED (' + pki_volume + ')' if (keep_data | bool) else 'DELETED (' + pki_volume + ')' }}"
+          - "Install directory:   {{ 'PRESERVED (' + ziti_install_dir + ')' if (keep_data | bool) else 'DELETED (' + ziti_install_dir + ')' }}"
+          - "Remaining stack containers: {{ (leftover_ps.stdout_lines | default([])) | intersect(stack_containers) | join(', ') or 'none' }}"
+          - "-----------------------------------------------------------------"
+          - "Not reverted: container runtime install and firewall hardening."
+          - "Remember to remove Cloudflare resources (tunnel, DNS, Access app):"
+          - "  cd infrastructure/opentofu && tofu destroy   (if managed by OpenTofu)"
+          - "================================================================="

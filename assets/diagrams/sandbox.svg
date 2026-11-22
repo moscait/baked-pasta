@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="640" viewBox="0 0 960 640" role="img" aria-labelledby="t d" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif">
+<title id="t">Configuration 1: all-local containerized sandbox</title>
+<desc id="d">A browser and the OpenZiti Desktop Edge client on the workstation reach containers over 127.0.0.1. The menu nginx container serves the portal and Admin Console and proxies to the app and controller. zt-app binds a dark service through the controller&#x27;s edge router; ziti-setup provisions services, policies and identities.</desc>
+<defs>
+<marker id="arr-http" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#3E5A54"/></marker>
+<marker id="arr-overlay" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#D9481C"/></marker>
+</defs>
+<rect width="960" height="640" rx="14" fill="#FFFDF9"/>
+<text x="32" y="42" font-size="19" font-weight="700" fill="#14302B" text-anchor="start">Configuration 1 · All-local sandbox</text>
+<text x="32" y="63" font-size="12.5" font-weight="400" fill="#5E6E69" text-anchor="start">Everything runs in local containers. Every published port is bound to 127.0.0.1.</text>
+<line x1="624" y1="46" x2="650" y2="46" stroke="#3E5A54" stroke-width="2.5"/>
+<text x="658" y="50" font-size="12" font-weight="600" fill="#5E6E69" text-anchor="start">HTTP(S)</text>
+<line x1="734" y1="46" x2="760" y2="46" stroke="#D9481C" stroke-width="2.5"/>
+<text x="768" y="50" font-size="12" font-weight="600" fill="#5E6E69" text-anchor="start">OpenZiti mTLS overlay</text>
+<rect x="24" y="84" width="912" height="532" rx="14" fill="#F6ECDC" stroke="#E3D3B8" stroke-width="1.5"/>
+<text x="44" y="110" font-size="11.5" font-weight="700" fill="#5E6E69" text-anchor="start" letter-spacing="0.08em">YOUR WORKSTATION</text>
+<rect x="48" y="120" width="300" height="74" rx="10" fill="#FFFFFF" stroke="#CDBFA6" stroke-width="1.5"/>
+<text x="64" y="146" font-size="15" font-weight="650" fill="#14302B" text-anchor="start">Web browser</text>
+<text x="64" y="167" font-size="12.5" font-weight="400" fill="#5E6E69" text-anchor="start">menu.local · app.local · zt.local via /etc/hosts</text>
+<rect x="612" y="120" width="300" height="74" rx="10" fill="#FFFFFF" stroke="#CDBFA6" stroke-width="1.5"/>
+<text x="628" y="146" font-size="15" font-weight="650" fill="#14302B" text-anchor="start">OpenZiti Desktop Edge</text>
+<text x="628" y="167" font-size="12.5" font-weight="400" fill="#5E6E69" text-anchor="start">Enrolled with zt-host-client.jwt</text>
+<rect x="44" y="228" width="872" height="368" rx="14" fill="#FBF5EA" stroke="#D9C7A6" stroke-width="1.5" stroke-dasharray="6 5"/>
+<text x="222" y="254" font-size="11.5" font-weight="700" fill="#5E6E69" text-anchor="start" letter-spacing="0.08em">DOCKER / PODMAN COMPOSE NETWORK</text>
+<rect x="68" y="268" width="260" height="90" rx="10" fill="#FFFFFF" stroke="#CDBFA6" stroke-width="1.5"/>
+<text x="84" y="294" font-size="15" font-weight="650" fill="#14302B" text-anchor="start" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace">menu</text>
+<text x="84" y="315" font-size="12.5" font-weight="400" fill="#5E6E69" text-anchor="start">nginx: portal, ZAC, proxy</text>
+<rect x="84" y="328" width="51" height="20" rx="10" fill="#FBE3A6"/>
+<text x="109.5" y="342" font-size="11.5" font-weight="600" fill="#14302B" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace">:8080</text>
+<rect x="141" y="328" width="51" height="20" rx="10" fill="#FBE3A6"/>
+<text x="166.5" y="342" font-size="11.5" font-weight="600" fill="#14302B" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace">:8443</text>
+<rect x="350" y="268" width="260" height="90" rx="10" fill="#FFFFFF" stroke="#CDBFA6" stroke-width="1.5"/>
+<text x="366" y="294" font-size="15" font-weight="650" fill="#14302B" text-anchor="start" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace">app</text>
+<text x="366" y="315" font-size="12.5" font-weight="400" fill="#5E6E69" text-anchor="start">Spring Boot + Vaadin (plain HTTP)</text>
+<rect x="366" y="328" width="51" height="20" rx="10" fill="#FBE3A6"/>
+<text x="391.5" y="342" font-size="11.5" font-weight="600" fill="#14302B" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace">:8082</text>
+<rect x="632" y="268" width="260" height="90" rx="10" fill="#FFFFFF" stroke="#CDBFA6" stroke-width="1.5"/>
+<text x="648" y="294" font-size="15" font-weight="650" fill="#14302B" text-anchor="start" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace">dns-server</text>
+<text x="648" y="315" font-size="12.5" font-weight="400" fill="#5E6E69" text-anchor="start">Local DNS proxy</text>
+<rect x="648" y="328" width="79" height="20" rx="10" fill="#FBE3A6"/>
+<text x="687.5" y="342" font-size="11.5" font-weight="600" fill="#14302B" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace">:5300/udp</text>
+<rect x="68" y="400" width="260" height="90" rx="10" fill="#FFFFFF" stroke="#CDBFA6" stroke-width="1.5"/>
+<text x="84" y="426" font-size="15" font-weight="650" fill="#14302B" text-anchor="start" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace">ziti-controller</text>
+<text x="84" y="447" font-size="12.5" font-weight="400" fill="#5E6E69" text-anchor="start">Controller + edge router</text>
+<rect x="84" y="460" width="51" height="20" rx="10" fill="#FBE3A6"/>
+<text x="109.5" y="474" font-size="11.5" font-weight="600" fill="#14302B" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace">:1280</text>
+<rect x="141" y="460" width="51" height="20" rx="10" fill="#FBE3A6"/>
+<text x="166.5" y="474" font-size="11.5" font-weight="600" fill="#14302B" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace">:8444</text>
+<rect x="350" y="400" width="260" height="90" rx="10" fill="#FFFFFF" stroke="#CDBFA6" stroke-width="1.5"/>
+<text x="366" y="426" font-size="15" font-weight="650" fill="#14302B" text-anchor="start" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace">ziti-setup</text>
+<text x="366" y="447" font-size="12.5" font-weight="400" fill="#5E6E69" text-anchor="start">One-shot: services, policies,</text>
+<text x="366" y="465" font-size="12.5" font-weight="400" fill="#5E6E69" text-anchor="start">identities, TLS certificate</text>
+<rect x="632" y="400" width="260" height="90" rx="10" fill="#FFF4E8" stroke="#E9A27F" stroke-width="1.5"/>
+<text x="648" y="426" font-size="15" font-weight="650" fill="#14302B" text-anchor="start" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace">zt-app</text>
+<text x="648" y="447" font-size="12.5" font-weight="400" fill="#5E6E69" text-anchor="start">OpenZiti Java SDK</text>
+<rect x="648" y="460" width="100" height="20" rx="10" fill="#FBE3A6"/>
+<text x="698.0" y="474" font-size="11.5" font-weight="600" fill="#14302B" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace">no open port</text>
+<rect x="68" y="530" width="824" height="44" rx="10" fill="none" stroke="#D9C7A6" stroke-width="1.5" stroke-dasharray="4 4"/>
+<text x="88" y="557" font-size="12.5" font-weight="400" fill="#5E6E69" text-anchor="start">Shared volumes: controller PKI · app identity · enrollment token · self-signed TLS cert · setup log</text>
+<path d="M198 194 L198 268" fill="none" stroke="#3E5A54" stroke-width="2" stroke-linejoin="round" marker-end="url(#arr-http)"/>
+<rect x="151.5" y="199" width="93" height="20" rx="10" fill="#FFFDF9" stroke="#3E5A54" stroke-width="1"/>
+<text x="198" y="213.5" font-size="11.5" font-weight="600" fill="#3E5A54" text-anchor="middle">HTTP / HTTPS</text>
+<path d="M328 313 L350 313" fill="none" stroke="#3E5A54" stroke-width="2" stroke-linejoin="round" marker-end="url(#arr-http)"/>
+<path d="M198 358 L198 400" fill="none" stroke="#3E5A54" stroke-width="2" stroke-linejoin="round" marker-end="url(#arr-http)"/>
+<rect x="161.5" y="368" width="73" height="20" rx="10" fill="#FFFDF9" stroke="#3E5A54" stroke-width="1"/>
+<text x="198" y="382.5" font-size="11.5" font-weight="600" fill="#3E5A54" text-anchor="middle">/edge API</text>
+<path d="M350 445 L328 445" fill="none" stroke="#3E5A54" stroke-width="2" stroke-linejoin="round" marker-end="url(#arr-http)"/>
+<path d="M640 194 L640 252 L621 252 L621 379 L290 379 L290 400" fill="none" stroke="#D9481C" stroke-width="2" stroke-linejoin="round" marker-end="url(#arr-overlay)"/>
+<rect x="390.5" y="368" width="159" height="20" rx="10" fill="#FFFDF9" stroke="#D9481C" stroke-width="1"/>
+<text x="470" y="382.5" font-size="11.5" font-weight="600" fill="#D9481C" text-anchor="middle">dials zt-app-secure-ui</text>
+<path d="M762 490 L762 510 L250 510 L250 490" fill="none" stroke="#D9481C" stroke-width="2" stroke-linejoin="round" marker-end="url(#arr-overlay)"/>
+<rect x="406.5" y="499" width="199" height="20" rx="10" fill="#FFFDF9" stroke="#D9481C" stroke-width="1"/>
+<text x="506" y="513.5" font-size="11.5" font-weight="600" fill="#D9481C" text-anchor="middle">binds the service (outbound)</text>
+</svg>

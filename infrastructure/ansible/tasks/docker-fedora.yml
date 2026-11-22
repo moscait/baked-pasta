@@ -1,0 +1,35 @@
+---
+# Fedora ships podman-compose in its base repos. On the Enterprise Linux family
+# (Oracle Linux, CentOS Stream, Rocky, AlmaLinux) it lives in EPEL, so enable that first.
+- name: Enable Oracle Linux EPEL repository (provides podman-compose)
+  when: ansible_facts['distribution'] == 'OracleLinux'
+  ansible.builtin.dnf:
+    name: "oracle-epel-release-el{{ ansible_facts['distribution_major_version'] }}"
+    state: present
+
+- name: Enable EPEL repository on CentOS / Rocky / AlmaLinux (provides podman-compose)
+  when: ansible_facts['distribution'] in ['CentOS', 'Rocky', 'AlmaLinux']
+  ansible.builtin.dnf:
+    name: epel-release
+    state: present
+
+- name: Install Podman, Podman Compose, and Docker CLI wrapper (Fedora / Enterprise Linux)
+  ansible.builtin.dnf:
+    name:
+      - podman
+      - podman-compose
+      - podman-docker
+    state: present
+    enablerepo: "{{ ('ol' ~ ansible_facts['distribution_major_version'] ~ '_developer_EPEL') if ansible_facts['distribution'] == 'OracleLinux' else omit }}"
+
+- name: Start and enable Podman socket (provides Docker API /var/run/docker.sock)
+  ansible.builtin.systemd:
+    name: podman.socket
+    state: started
+    enabled: yes
+
+- name: Configure SELinux container boolean if SELinux is enforcing
+  when: ansible_facts['selinux'] is defined and ansible_facts['selinux']['status'] == 'enabled'
+  ansible.builtin.command:
+    cmd: setsebool -P container_manage_cgroup 1
+  failed_when: false

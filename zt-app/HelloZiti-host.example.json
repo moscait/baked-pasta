@@ -1,0 +1,11 @@
+{
+    "ztAPI": "https://ziti-edge-controller:1280/edge/client/v1",
+    "ztAPIs": null,
+    "configTypes": null,
+    "id": {
+        "key": "pem:-----BEGIN RSA PRIVATE KEY-----\nSOME KEY\n-----END RSA PRIVATE KEY-----\n",
+        "cert": "pem:-----BEGIN CERTIFICATE-----\n SOME CERT\n",
+        "ca": "pem:-----BEGIN CERTIFICATE-----\n SOME OTHER CERT\n"
+    },
+    "enableHa": false
+}

@@ -1,0 +1,279 @@
+name: openziti
+
+# SECURITY: this file contains no secrets. Credentials and tokens are interpolated at
+# runtime from the sibling .env file (mode 0600) written by Ansible.
+
+volumes:
+  ziti-pki-data:
+
+networks:
+  openziti-network:
+    name: openziti-network
+    driver: bridge
+
+services:
+  ziti-controller:
+    image: {{ ziti_quickstart_image }}
+    container_name: ziti-controller.local
+    user: "2171:2171"
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+    environment:
+      - ZITI_IMAGE=openziti/quickstart
+      - ZITI_VERSION=latest
+      - ZITI_USER=${OPENZITI_ADMIN_USER:?OPENZITI_ADMIN_USER missing from .env}
+      - ZITI_PWD=${OPENZITI_ADMIN_PASSWORD:?OPENZITI_ADMIN_PASSWORD missing from .env}
+      - ZITI_ADVERTISE_ADDRESS={{ ziti_advertise_address }}
+      - ZITI_CTRL_PORT={{ ziti_ctrl_port }}
+      - ZITI_MGMT_PORT={{ ziti_mgmt_port }}
+      - ZITI_ROUTER_PORT={{ ziti_router_port }}
+      # OpenZiti 2.x quickstart always runs as a (single-member) HA cluster and keeps the controller's
+      # config, raft data and router files in /persistent/<instance id>/.
+      - ZITI_INSTANCE_ID=instance-1
+    volumes:
+      - ziti-pki-data:/persistent:z
+    ports:
+      - "{{ ziti_ctrl_port }}:{{ ziti_ctrl_port }}"
+      - "{{ ziti_router_port }}:{{ ziti_router_port }}"
+    extra_hosts:
+      - "{{ ziti_advertise_address }}:127.0.0.1"
+    entrypoint:
+      - bash
+      - -c
+      - |
+        set -euo pipefail
+        INST=/persistent/$${ZITI_INSTANCE_ID}
+        CFG=$${INST}/ctrl.yaml
+        PKI=/persistent/pki
+
+        # A volume from OpenZiti 1.x keeps ctrl.yaml directly in /persistent. The 2.x quickstart can't
+        # use it and would silently start a second, empty network next to it, so refuse instead.
+        if [ -f /persistent/ctrl.yaml ] && [ ! -d "$$INST" ]; then
+          echo "ERROR: /persistent holds an OpenZiti 1.x controller, which OpenZiti 2.x cannot upgrade in place." >&2
+          echo "Tear the deployment down (deploy-ziti.sh --teardown, which deletes the PKI volume) and deploy again." >&2
+          exit 1
+        fi
+
+        QuickstartCmd=(
+          /var/openziti/ziti-bin/ziti edge quickstart
+          --home /persistent
+          --instance-id "$$ZITI_INSTANCE_ID"
+          --ctrl-address "$$ZITI_ADVERTISE_ADDRESS"
+          --ctrl-port "$$ZITI_CTRL_PORT"
+          --router-address "$$ZITI_ADVERTISE_ADDRESS"
+          --router-port "$$ZITI_ROUTER_PORT"
+          --username "$$ZITI_USER"
+        )
+        # quickstart takes the admin password only as an argument (it ignores ZITI_PWD), and process
+        # arguments are visible to every user on the host via ps. So the password goes only to the
+        # short-lived first-boot bootstrap below; an initialized controller does not use it, and the
+        # long-running process starts without it.
+
+        # On first boot, let quickstart generate PKI, ctrl.yaml, and router enrollment,
+        # then split the web listener so public port 1280 serves only client/OIDC APIs
+        # and internal port 1281 (unexposed on the host) serves management/fabric APIs.
+        if [ ! -f "$$CFG" ] || ! grep -q "name: internal-management" "$$CFG"; then
+          "$${QuickstartCmd[@]}" --password "$$ZITI_PWD" &
+          QS_PID=$$!
+          echo "Waiting for initial OpenZiti controller & router bootstrap..."
+          for _ in $$(seq 1 90); do
+            if [ -f "$${INST}/router-$${ZITI_INSTANCE_ID}.cert" ] && curl -ks "https://127.0.0.1:$${ZITI_CTRL_PORT}/edge/client/v1/version" >/dev/null 2>&1; then
+              break
+            fi
+            sleep 2
+          done
+          kill -TERM "$$QS_PID" 2>/dev/null || true
+          wait "$$QS_PID" 2>/dev/null || true
+          # Until bootstrap completes the admin user may not exist, and starting without --password
+          # would create it with quickstart's default password. Fail instead, so it is retried.
+          if [ ! -f "$${INST}/router-$${ZITI_INSTANCE_ID}.cert" ]; then
+            echo "ERROR: OpenZiti bootstrap did not complete; exiting so it is retried." >&2
+            exit 1
+          fi
+
+          sed '/^web:/,$$d' "$$CFG" > "$${CFG}.tmp"
+          cat >> "$${CFG}.tmp" <<EOF
+        web:
+          - name: client-public
+            bindPoints:
+              - interface: 0.0.0.0:$${ZITI_CTRL_PORT}
+                address: $${ZITI_ADVERTISE_ADDRESS}:$${ZITI_CTRL_PORT}
+            identity:
+              ca:          "$${PKI}/root-ca/certs/root-ca.cert"
+              key:         "$${PKI}/intermediate-ca-$${ZITI_INSTANCE_ID}/keys/server.key"
+              server_cert: "$${PKI}/intermediate-ca-$${ZITI_INSTANCE_ID}/certs/server.chain.pem"
+              cert:        "$${PKI}/intermediate-ca-$${ZITI_INSTANCE_ID}/certs/client.chain.pem"
+            options:
+              idleTimeout: 5000ms
+              readTimeout: 5000ms
+              writeTimeout: 100000ms
+              minTLSVersion: TLS1.2
+              maxTLSVersion: TLS1.3
+            apis:
+              - binding: edge-client
+                options: { }
+              - binding: edge-oidc
+                options: { }
+          - name: internal-management
+            bindPoints:
+              - interface: 0.0.0.0:$${ZITI_MGMT_PORT}
+                address: localhost:$${ZITI_MGMT_PORT}
+            identity:
+              ca:          "$${PKI}/root-ca/certs/root-ca.cert"
+              key:         "$${PKI}/intermediate-ca-$${ZITI_INSTANCE_ID}/keys/server.key"
+              server_cert: "$${PKI}/intermediate-ca-$${ZITI_INSTANCE_ID}/certs/server.chain.pem"
+              cert:        "$${PKI}/intermediate-ca-$${ZITI_INSTANCE_ID}/certs/client.chain.pem"
+            options:
+              idleTimeout: 5000ms
+              readTimeout: 5000ms
+              writeTimeout: 100000ms
+              minTLSVersion: TLS1.2
+              maxTLSVersion: TLS1.3
+            apis:
+              - binding: edge-management
+                options: { }
+              - binding: fabric
+                options: { }
+              # The 2.x CLI ('ziti edge login', used by ziti-setup) always authenticates via OIDC
+              # on the address it logs in to, so the internal listener needs the OIDC endpoints too.
+              - binding: edge-oidc
+                options: { }
+        EOF
+          mv "$${CFG}.tmp" "$$CFG"
+          echo "Controller listener split applied (public client: $${ZITI_CTRL_PORT}, internal mgmt: $${ZITI_MGMT_PORT})."
+        fi
+
+        exec "$${QuickstartCmd[@]}"
+    networks:
+      openziti-network:
+        aliases:
+          - ziti-controller.local
+          - ziti-controller
+          - "{{ ziti_advertise_address }}"
+
+  ziti-setup:
+    image: {{ ziti_quickstart_image }}
+    container_name: ziti-setup
+    user: "2171:2171"
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      - ZITI_USER=${OPENZITI_ADMIN_USER:?OPENZITI_ADMIN_USER missing from .env}
+      - ZITI_PWD=${OPENZITI_ADMIN_PASSWORD:?OPENZITI_ADMIN_PASSWORD missing from .env}
+      - ZITI_MGMT_PORT={{ ziti_mgmt_port }}
+    entrypoint:
+      - bash
+      - -c
+      - |
+        set -euo pipefail
+
+        # Shares the controller's network namespace (network_mode below), so it connects via
+        # localhost: the controller certificate always lists localhost, while ziti-controller.local
+        # is only included when it is also the advertise address.
+        MGMT="https://localhost:$${ZITI_MGMT_PORT}"
+
+        # OpenZiti 2.x runs the controller as a one-member raft cluster. Writes fail with
+        # CLUSTER_NO_LEADER until it has elected itself leader, a few seconds after the API is up.
+        retry() {
+          for _ in $$(seq 1 30); do
+            "$$@" && return 0
+            sleep 2
+          done
+          return 1
+        }
+
+        setup_ziti() {
+          echo "Waiting for OpenZiti internal management listener to start..."
+          until curl -k -s "$$MGMT/edge/management/v1/version" > /dev/null; do
+            sleep 2
+          done
+          echo "Controller management API is up! Logging in..."
+          # 'ziti edge login' accepts the password only as -p (not from the environment or stdin);
+          # this short-lived call is the one place it appears in process arguments after bootstrap.
+          if ! retry /var/openziti/ziti-bin/ziti edge login "$$MGMT" -u "$$ZITI_USER" -p "$$ZITI_PWD" -y; then
+            echo "ERROR: could not log in to the controller; default router policies were NOT created." >&2
+            exit 1
+          fi
+
+          # Establish default router policies so newly created identities route seamlessly
+          if ! /var/openziti/ziti-bin/ziti edge list edge-router-policies "name = \"all-endpoints-all-routers\"" --csv | grep "all-endpoints-all-routers" >/dev/null; then
+            echo "Creating default edge router policy..."
+            retry /var/openziti/ziti-bin/ziti edge create edge-router-policy all-endpoints-all-routers --edge-router-roles '#all' --identity-roles '#all'
+          fi
+
+          if ! /var/openziti/ziti-bin/ziti edge list service-edge-router-policies "name = \"all-services-all-routers\"" --csv | grep "all-services-all-routers" >/dev/null; then
+            echo "Creating default service edge router policy..."
+            retry /var/openziti/ziti-bin/ziti edge create service-edge-router-policy all-services-all-routers --edge-router-roles '#all' --service-roles '#all'
+          fi
+
+          echo "OpenZiti Controller and Router ready!"
+        }
+        setup_ziti
+    network_mode: "service:ziti-controller"
+    depends_on:
+      - ziti-controller
+
+  console:
+    image: {{ nginx_image }}
+    container_name: openziti-console
+    user: "101:101"
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:{{ portal_local_port }}:8080"
+    # Fill the nginx resolver from /etc/resolv.conf (Docker and Podman use different DNS addresses).
+    environment:
+      - NGINX_ENTRYPOINT_LOCAL_RESOLVERS=1
+      - NGINX_ENVSUBST_FILTER=NGINX_LOCAL_RESOLVERS
+    volumes:
+      - ./console:/usr/share/nginx/html:ro,z
+      - ./nginx/default.conf:/etc/nginx/templates/default.conf.template:ro,z
+    networks:
+      openziti-network:
+        aliases:
+          - console.local
+          - console
+    depends_on:
+      - ziti-controller
+
+  cloudflared:
+    image: {{ cloudflared_image }}
+    container_name: openziti-tunnel
+    user: "65532:65532"
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+    network_mode: host
+{% if (clean_tunnel_token | default('', true) | trim) != '' %}
+    # Token supplied via TUNNEL_TOKEN env (from .env), not argv, so it is not visible in `ps`.
+    environment:
+      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN:?CLOUDFLARE_TUNNEL_TOKEN missing from .env}
+    command: ["tunnel", "--no-autoupdate", "run"]
+{% else %}
+    # Explicitly opted-in TryCloudflare Quick Tunnel (no Cloudflare Access).
+    command: ["tunnel", "--no-autoupdate", "--url", "http://127.0.0.1:{{ portal_local_port }}"]
+{% endif %}
+    depends_on:
+      - console
+{% if ddns_enabled | default(false) | bool %}
+
+  # Automatic Cloudflare Dynamic DNS (DDNS) updater for non-static home WAN IPs
+  # Keeps the DNS-only (grey-cloud) A record for {{ ziti_advertise_address }} synced with the current public IPv4.
+  ddns:
+    image: {{ cloudflare_ddns_image }}
+    container_name: openziti-ddns
+    user: "1000:1000"
+    restart: unless-stopped
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      - CLOUDFLARE_API_TOKEN=${CLOUDFLARE_DNS_API_TOKEN:?CLOUDFLARE_DNS_API_TOKEN missing from .env}
+      - DOMAINS={{ ziti_advertise_address }}
+      - PROXIED=false
+      - IP6_PROVIDER=none
+      - TTL=120
+      - UPDATE_CRON=@every 5m
+{% endif %}

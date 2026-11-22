@@ -1,0 +1,42 @@
+Baked Pasta
+Copyright 2026 Baked Pasta contributors
+
+Licensed under the Apache License, Version 2.0. See the LICENSE file.
+
+This is an independent community project. It is not affiliated with or
+endorsed by NetFoundry Inc. or the OpenZiti project.
+
+------------------------------------------------------------------------
+
+This project downloads and serves the following third-party software. It is
+not stored in this repository; scripts/fetch-console.sh downloads it and
+verifies the SHA-256 checksums below.
+
+OpenZiti Admin Console (ZAC)
+  Source:    https://github.com/openziti/ziti-console
+  menu/zac/ (local sandbox):
+             4.8.0, release app-ziti-console-v4.8.0, unmodified ziti-console.zip,
+             sha256 359f65466ffea40fd1ec58a502323b5e045d266d586ff14c099f01d3fd681a72
+  infrastructure/console/ (routable deployment):
+             MODIFIED build of 4.8.1 from https://github.com/moscait/ziti-console
+             (branch main, commit 35f72f9), which adds
+             an "Access Canvas" view (a drag-and-drop access designer with a
+             "Set up a service" wizard; its layout is kept in the browser).
+             Built with scripts/build-console.sh and published as the release
+             asset console-4.8.1-access-canvas-35f72f9 of this repository,
+             sha256 0e640a8433c79f206c4e2d503947b4a1978ef12cd9818681ae6f19315b914bac
+             (see BUILD-INFO.txt in the archive). To use the stock release instead,
+             build it with scripts/build-console.sh from the upstream repository.
+  License:   Apache License, Version 2.0 (see the LICENSE file)
+  Copyright NetFoundry Inc.
+
+  Licenses for the console's own dependencies are listed in
+  3rdpartylicenses.txt inside each console archive.
+
+The logo wordmark in assets/logo/ is set in Fraunces, Copyright 2018 The
+Fraunces Project Authors (https://github.com/undercasetype/Fraunces), licensed
+under the SIL Open Font License 1.1. The letters are converted to outlines; no
+font files are included.
+
+The demo application in app/ is based on a Vaadin starter project and is
+covered by its own notice in app/LICENSE.md.

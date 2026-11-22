@@ -1,0 +1,38 @@
+---
+# NOTE: Docker publishes container ports via its own iptables chains, which bypass UFW.
+# The stack therefore publishes ONLY 1280/8444 publicly and binds the console to
+# 127.0.0.1:8080; never add other public `ports:` to the compose stack expecting UFW to block them.
+- name: Install ufw package
+  ansible.builtin.apt:
+    name: ufw
+    state: present
+
+- name: Allow SSH through UFW to prevent lockout
+  ansible.builtin.command:
+    cmd: ufw allow OpenSSH
+  failed_when: false
+
+- name: Allow OpenZiti Controller client/enrollment and control plane (TCP 1280)
+  ansible.builtin.command:
+    cmd: "ufw allow {{ ziti_ctrl_port }}/tcp comment 'OpenZiti Controller (client & control plane)'"
+  failed_when: false
+
+- name: Allow OpenZiti Edge Router data plane (TCP 8444)
+  ansible.builtin.command:
+    cmd: "ufw allow {{ ziti_router_port }}/tcp comment 'OpenZiti Edge Router'"
+  failed_when: false
+
+- name: Ensure default incoming policy is deny (Zero Trust)
+  ansible.builtin.command:
+    cmd: ufw default deny incoming
+  failed_when: false
+
+- name: Ensure default outgoing policy is allow
+  ansible.builtin.command:
+    cmd: ufw default allow outgoing
+  failed_when: false
+
+- name: Enable UFW service
+  ansible.builtin.command:
+    cmd: ufw --force enable
+  failed_when: false

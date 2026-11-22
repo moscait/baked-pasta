@@ -1,0 +1,164 @@
+name: Build and Publish Docker Images
+
+# Image tags come from git, not from this file:
+#   push to main       -> :main and :sha-<commit>
+#   tag vX.Y.Z         -> :X.Y.Z, :X.Y and :sha-<commit>   (see CONTRIBUTING.md, "Releasing")
+# Images are published only after the CI workflow (tests and lint) passes.
+#
+# Multi-platform images are built the way Docker documents for GitHub Actions
+# (https://docs.docker.com/build/ci/github-actions/multi-platform/#distribute-build-across-multiple-runners):
+# each platform builds natively on its own runner (no QEMU emulation) and is pushed by digest
+# only; a merge job then publishes one multi-platform manifest per image under the final tags.
+# Digests pass between jobs as job outputs rather than artifacts, so publishing does not depend
+# on the organization's shared Actions storage quota.
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*.*.*'
+    paths:
+      - 'app/**'
+      - 'zt-app/**'
+      - '.github/workflows/docker-publish.yml'
+      - '.github/workflows/ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml
+
+  build:
+    name: Build ${{ matrix.app.name }} (${{ matrix.platform.name }})
+    needs: ci
+    runs-on: ${{ matrix.platform.runner }}
+    permissions:
+      contents: read
+      packages: write
+    # Each matrix leg sets only its own output (empty outputs are not recorded), so together the
+    # legs hand all four digests to the merge job without artifact storage.
+    outputs:
+      app-linux-amd64: ${{ steps.digest.outputs.app-linux-amd64 }}
+      app-linux-arm64: ${{ steps.digest.outputs.app-linux-arm64 }}
+      zt-app-linux-amd64: ${{ steps.digest.outputs.zt-app-linux-amd64 }}
+      zt-app-linux-arm64: ${{ steps.digest.outputs.zt-app-linux-arm64 }}
+    strategy:
+      fail-fast: false
+      matrix:
+        app:
+          - name: app
+            image: baked-pasta-demo-app
+          - name: zt-app
+            image: baked-pasta-demo-zt-app
+        platform:
+          - name: linux/amd64
+            runner: ubuntu-24.04
+          - name: linux/arm64
+            runner: ubuntu-24.04-arm
+    env:
+      IMAGE: ghcr.io/${{ github.repository_owner }}/${{ matrix.app.image }}
+    steps:
+      - name: Prepare
+        run: |
+          platform='${{ matrix.platform.name }}'
+          echo "PLATFORM_PAIR=${platform//\//-}" >> "$GITHUB_ENV"
+
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Extract metadata (labels)
+        id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ${{ env.IMAGE }}
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: Build and push by digest
+        id: build
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: ./${{ matrix.app.name }}
+          platforms: ${{ matrix.platform.name }}
+          labels: ${{ steps.meta.outputs.labels }}
+          outputs: type=image,name=${{ env.IMAGE }},push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=gha,scope=${{ matrix.app.name }}-${{ env.PLATFORM_PAIR }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.app.name }}-${{ env.PLATFORM_PAIR }}
+
+      - name: Export digest
+        id: digest
+        run: echo "${{ matrix.app.name }}-${PLATFORM_PAIR}=${{ steps.build.outputs.digest }}" >> "$GITHUB_OUTPUT"
+
+  merge:
+    name: Publish ${{ matrix.app.name }}
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        app:
+          - name: app
+            image: baked-pasta-demo-app
+          - name: zt-app
+            image: baked-pasta-demo-zt-app
+    env:
+      IMAGE: ghcr.io/${{ github.repository_owner }}/${{ matrix.app.image }}
+    steps:
+      - name: Collect digests
+        env:
+          AMD64: ${{ needs.build.outputs[format('{0}-linux-amd64', matrix.app.name)] }}
+          ARM64: ${{ needs.build.outputs[format('{0}-linux-arm64', matrix.app.name)] }}
+        run: |
+          for d in "$AMD64" "$ARM64"; do
+            [[ "$d" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "::error::missing or malformed digest: '$d'"; exit 1; }
+          done
+          echo "SOURCES=$IMAGE@$AMD64 $IMAGE@$ARM64" >> "$GITHUB_ENV"
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: Extract metadata (tags)
+        id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,format=long
+
+      - name: Create the multi-platform manifest and push the tags
+        run: |
+          # Tags and digests are validated values without spaces, so word splitting is intended.
+          # shellcheck disable=SC2046,SC2086
+          docker buildx imagetools create \
+            $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
+            $SOURCES
+
+      - name: Inspect the published image
+        run: docker buildx imagetools inspect "$IMAGE:${{ steps.meta.outputs.version }}"

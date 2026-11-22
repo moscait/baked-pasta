@@ -1,0 +1,51 @@
+name: Bug report
+description: Something in the sandbox, the deployment or the demo apps doesn't work as documented.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Security problems must **not** be reported here. Use the Security tab → **Report a vulnerability**.
+        Please remove tokens, passwords, enrollment JWTs, identity files and public IPs from anything you paste.
+  - type: dropdown
+    id: configuration
+    attributes:
+      label: Configuration
+      options:
+        - "Configuration 1: all-local sandbox"
+        - "Configuration 2: routable infrastructure"
+        - Demo apps (app / zt-app)
+        - OpenTofu (Cloudflare or Oracle Cloud)
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. make sandbox-up
+        2. ...
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS and version, Docker or Podman version, target distro (for Configuration 2), commit.
+      placeholder: "macOS 15, Docker 29.0, commit abc1234"
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: For example `docker compose logs ziti-setup`. Redact secrets first.
+      render: shell

@@ -1,0 +1,91 @@
+---
+# ==============================================================================
+# Refresh the OpenZiti Admin Console (ZAC) on an existing deployment
+# ==============================================================================
+# Replaces the console files and nginx config in the install directory with the
+# copies from this repository (infrastructure/console/ and nginx/default.conf),
+# then restarts only the openziti-console container.
+#
+# Use it after fetching a newer pinned console, or after building one from source
+# with scripts/build-console.sh. The controller, PKI, identities, tunnel and
+# credentials are not touched, so no Cloudflare token is needed.
+# ==============================================================================
+- name: Refresh OpenZiti Admin Console
+  hosts: all
+  become: yes
+  vars_files:
+    - vars/main.yml
+  tasks:
+    - name: Check that OpenZiti is deployed here
+      ansible.builtin.stat:
+        path: "{{ ziti_install_dir }}/docker-compose.yaml"
+      register: compose_file
+
+    - name: Refuse to run without an existing deployment
+      ansible.builtin.fail:
+        msg: "No deployment found in {{ ziti_install_dir }}. Run deploy-ziti.sh without --update-console first."
+      when: not compose_file.stat.exists
+
+    - name: Read the owner of the install directory
+      ansible.builtin.stat:
+        path: "{{ ziti_install_dir }}/console"
+      register: console_dir
+
+    - name: Copy nginx configuration
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/../nginx/default.conf"
+        dest: "{{ ziti_install_dir }}/nginx/default.conf"
+        owner: "{{ console_dir.stat.pw_name | default(ziti_runtime_user) }}"
+        mode: '0644'
+
+    - name: Stage new console files
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/../console/"
+        dest: "{{ ziti_install_dir }}/console.new/"
+        owner: "{{ console_dir.stat.pw_name | default(ziti_runtime_user) }}"
+        mode: '0644'
+        directory_mode: '0755'
+
+    # Swap directories so stale hashed bundles from the previous build don't linger.
+    - name: Swap in the new console
+      ansible.builtin.shell: |
+        set -e
+        rm -rf "{{ ziti_install_dir }}/console.old"
+        if [ -d "{{ ziti_install_dir }}/console" ]; then mv "{{ ziti_install_dir }}/console" "{{ ziti_install_dir }}/console.old"; fi
+        mv "{{ ziti_install_dir }}/console.new" "{{ ziti_install_dir }}/console"
+        rm -rf "{{ ziti_install_dir }}/console.old"
+      changed_when: true
+
+    - name: Apply container SELinux context on RedHat systems
+      ansible.builtin.command:
+        cmd: "chcon -Rt container_file_t {{ ziti_install_dir }}/console {{ ziti_install_dir }}/nginx"
+      when: ansible_facts['os_family'] == 'RedHat'
+      changed_when: true
+      failed_when: false
+
+    # The console container bind-mounts these directories; a restart re-reads nginx config
+    # and picks up the new directory inode after the swap.
+    - name: Restart the console container
+      ansible.builtin.shell: |
+        if command -v podman >/dev/null 2>&1; then podman restart openziti-console; else docker restart openziti-console; fi
+      changed_when: true
+
+    - name: Wait for the console to answer on loopback
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ portal_local_port }}/"
+        status_code: 200
+      register: console_up
+      retries: 15
+      delay: 2
+      until: console_up.status == 200
+
+    # scripts/fetch-console.sh records every install in .console-source; scripts/build-console.sh
+    # writes BUILD-INFO.txt. Report whichever exists (first_found with skip: no warning if neither).
+    - name: Report the console build
+      vars:
+        console_info_file: >-
+          {{ lookup('ansible.builtin.first_found',
+                    {'files': ['.console-source', 'BUILD-INFO.txt'],
+                     'paths': [playbook_dir + '/../console'], 'skip': true}) }}
+      ansible.builtin.debug:
+        msg: "{{ (lookup('ansible.builtin.file', console_info_file) | split('\n')) if console_info_file else 'Console without build information.' }}"

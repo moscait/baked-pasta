@@ -1,0 +1,43 @@
+---
+# Configuration Variables for OpenZiti Edge Infrastructure Deployment
+
+# Target install directory on the host
+ziti_install_dir: "/opt/openziti"
+
+# Silence Python interpreter discovery warnings
+ansible_python_interpreter: auto_silent
+
+# User that will run and manage the container runtime
+ziti_runtime_user: "{{ ansible_facts['env']['SUDO_USER'] | default(lookup('env', 'SUDO_USER')) | default(ansible_facts['user_id']) | default('root') }}"
+
+# OpenZiti Administrator Credentials (auto-generated if omitted)
+ziti_admin_username: "{{ lookup('env', 'OPENZITI_ADMIN_USER') | default('admin', true) }}"
+ziti_admin_password: "{{ lookup('env', 'OPENZITI_ADMIN_PASSWORD') | default('', true) }}"
+
+# Cloudflare Tunnel Token (leave empty for TryCloudflare zero-config quick tunnel)
+cloudflare_tunnel_token: "{{ lookup('env', 'CLOUDFLARE_TUNNEL_TOKEN') | default('', true) }}"
+
+# Cloudflare API Token with Zone.DNS:Edit permission for automatic DDNS updates of ziti_advertise_address
+# When set (and ziti_advertise_address is a public domain), the openziti-ddns sidecar keeps the grey-cloud A record updated.
+cloudflare_dns_api_token: "{{ lookup('env', 'CLOUDFLARE_DNS_API_TOKEN') | default('', true) }}"
+
+# Publicly routable DNS hostname (or IP) advertised by the OpenZiti Controller (1280) and Edge Router (8444)
+# In Cloudflare, configure this as a DNS-only (grey-cloud) A/AAAA record pointing to the host's public IP.
+ziti_advertise_address: "{{ lookup('env', 'OPENZITI_ADVERTISE_ADDRESS') | default('ziti-controller.local', true) }}"
+
+# Must be explicitly true to run a TryCloudflare Quick Tunnel (no Cloudflare Access in front of
+# the Admin Console). deploy-ziti.sh sets this only for --quick / an interactive confirmation.
+allow_quick_tunnel: false
+
+# Core OpenZiti Infrastructure Images (100% public, no auth required).
+# Pinned by tag AND digest for reproducible, tamper-evident deployments. Bump deliberately.
+ziti_quickstart_image: "docker.io/openziti/quickstart:2.0.8@sha256:a73d81b46a526a46a677f9f3ee8c2a31c6672935357b08312e99adda94e02bd3"
+cloudflared_image: "docker.io/cloudflare/cloudflared:2026.11.0@sha256:b94b96edf2c9c4360f8879c8580cfaa99077f19c849ec595ca2f711b27d4f344"
+cloudflare_ddns_image: "docker.io/favonia/cloudflare-ddns:1.18.0@sha256:345b41895a8846d74c62d30bd27e61101a754f8ab8da10c68115823883803afb"
+nginx_image: "docker.io/nginxinc/nginx-unprivileged:1.31.7-alpine3.24@sha256:b5047b9b76845eac124358373c6852377c52e4b05834a47647e955dd91cb8f1e"
+
+# Local host ports
+portal_local_port: 8080
+ziti_ctrl_port: 1280
+ziti_mgmt_port: 1281
+ziti_router_port: 8444

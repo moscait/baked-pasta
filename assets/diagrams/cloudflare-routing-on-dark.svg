@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="560" viewBox="0 0 1000 560" role="img" aria-labelledby="t d" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif">
+<title id="t">Cloudflare routing: two hostnames, two paths</title>
+<desc id="d">zt.example.com is a proxied record: the administrator&#x27;s browser passes Cloudflare Access, then the tunnel that cloudflared dials outbound, to nginx on 127.0.0.1:8080, which serves the Admin Console at / and proxies /edge/ to the internal management API on 1281. ziti.example.com is a DNS-only record: Ziti endpoints connect straight to the host over mTLS, TCP 1280 for the controller and 8444 for the edge router.</desc>
+<defs>
+<marker id="arr-http" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#9FC2B8"/></marker>
+<marker id="arr-overlay" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#FF7A4D"/></marker>
+</defs>
+<rect width="1000" height="560" rx="14" fill="#0F1A18"/>
+<text x="32" y="42" font-size="19" font-weight="700" fill="#F6ECDC" text-anchor="start">Cloudflare routing · two hostnames, two paths</text>
+<text x="32" y="63" font-size="12.5" font-weight="400" fill="#A8B8B2" text-anchor="start">The console hostname goes through Cloudflare Access; the overlay hostname is DNS-only.</text>
+<line x1="664" y1="46" x2="690" y2="46" stroke="#9FC2B8" stroke-width="2.5"/>
+<text x="698" y="50" font-size="12" font-weight="600" fill="#A8B8B2" text-anchor="start">HTTP(S)</text>
+<line x1="774" y1="46" x2="800" y2="46" stroke="#FF7A4D" stroke-width="2.5"/>
+<text x="808" y="50" font-size="12" font-weight="600" fill="#A8B8B2" text-anchor="start">OpenZiti mTLS overlay</text>
+<rect x="24" y="84" width="952" height="204" rx="14" fill="#15241F" stroke="#2A3F39" stroke-width="1.5"/>
+<text x="44" y="110" font-size="11.5" font-weight="700" fill="#A8B8B2" text-anchor="start" letter-spacing="0.08em">ADMIN CONSOLE · zt.example.com (PROXIED CNAME)</text>
+<rect x="48" y="124" width="180" height="140" rx="10" fill="#1E322C" stroke="#3D5A53" stroke-width="1.5"/>
+<text x="64" y="150" font-size="15" font-weight="650" fill="#F6ECDC" text-anchor="start">Admin browser</text>
+<text x="64" y="171" font-size="12.5" font-weight="400" fill="#A8B8B2" text-anchor="start">HTTPS to</text>
+<text x="64" y="189" font-size="12.5" font-weight="400" fill="#A8B8B2" text-anchor="start">zt.example.com</text>
+<rect x="260" y="124" width="200" height="140" rx="10" fill="#1E322C" stroke="#3D5A53" stroke-width="1.5"/>
+<text x="276" y="150" font-size="15" font-weight="650" fill="#F6ECDC" text-anchor="start">Cloudflare edge</text>
+<text x="276" y="171" font-size="12.5" font-weight="400" fill="#A8B8B2" text-anchor="start">Access: SSO or</text>
+<text x="276" y="189" font-size="12.5" font-weight="400" fill="#A8B8B2" text-anchor="start">email one-time PIN</text>
+<text x="276" y="207" font-size="12.5" font-weight="400" fill="#A8B8B2" text-anchor="start">Tunnel ingress</text>
+<rect x="492" y="124" width="180" height="140" rx="10" fill="#1E322C" stroke="#3D5A53" stroke-width="1.5"/>
+<text x="508" y="150" font-size="15" font-weight="650" fill="#F6ECDC" text-anchor="start" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace">cloudflared</text>
+<text x="508" y="171" font-size="12.5" font-weight="400" fill="#A8B8B2" text-anchor="start">Host network</text>
+<text x="508" y="189" font-size="12.5" font-weight="400" fill="#A8B8B2" text-anchor="start">Dials Cloudflare</text>
+<text x="508" y="207" font-size="12.5" font-weight="400" fill="#A8B8B2" text-anchor="start">outbound (QUIC/TLS)</text>
+<rect x="704" y="124" width="248" height="140" rx="10" fill="#1E322C" stroke="#3D5A53" stroke-width="1.5"/>
+<text x="720" y="150" font-size="15" font-weight="650" fill="#F6ECDC" text-anchor="start" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace">openziti-console</text>
+<text x="720" y="171" font-size="12.5" font-weight="400" fill="#A8B8B2" text-anchor="start">nginx on 127.0.0.1:8080</text>
+<text x="720" y="189" font-size="12.5" font-weight="400" fill="#A8B8B2" text-anchor="start">/        → Admin Console UI</text>
+<text x="720" y="207" font-size="12.5" font-weight="400" fill="#A8B8B2" text-anchor="start">/edge/  → controller :1281</text>
+<text x="720" y="225" font-size="12.5" font-weight="400" fill="#A8B8B2" text-anchor="start">(internal management API)</text>
+<path d="M228 194 L260 194" fill="none" stroke="#9FC2B8" stroke-width="2" stroke-linejoin="round" marker-end="url(#arr-http)"/>
+<path d="M492 194 L460 194" fill="none" stroke="#9FC2B8" stroke-width="2" stroke-linejoin="round" marker-end="url(#arr-http)" marker-start="url(#arr-http)"/>
+<path d="M672 194 L704 194" fill="none" stroke="#9FC2B8" stroke-width="2" stroke-linejoin="round" marker-end="url(#arr-http)"/>
+<rect x="24" y="308" width="952" height="228" rx="14" fill="#15241F" stroke="#2A3F39" stroke-width="1.5"/>
+<text x="44" y="334" font-size="11.5" font-weight="700" fill="#A8B8B2" text-anchor="start" letter-spacing="0.08em">OPENZITI OVERLAY · ziti.example.com (DNS-ONLY A RECORD)</text>
+<rect x="48" y="348" width="210" height="164" rx="10" fill="#1E322C" stroke="#3D5A53" stroke-width="1.5"/>
+<text x="64" y="374" font-size="15" font-weight="650" fill="#F6ECDC" text-anchor="start">iPhone / remote app</text>
+<text x="64" y="395" font-size="12.5" font-weight="400" fill="#A8B8B2" text-anchor="start">Ziti Edge app or</text>
+<text x="64" y="413" font-size="12.5" font-weight="400" fill="#A8B8B2" text-anchor="start">embedded SDK</text>
+<rect x="290" y="348" width="220" height="164" rx="10" fill="#1E322C" stroke="#3D5A53" stroke-width="1.5"/>
+<text x="306" y="374" font-size="15" font-weight="650" fill="#F6ECDC" text-anchor="start" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace">ziti.example.com</text>
+<text x="306" y="395" font-size="12.5" font-weight="400" fill="#A8B8B2" text-anchor="start">DNS-only (grey cloud)</text>
+<text x="306" y="413" font-size="12.5" font-weight="400" fill="#A8B8B2" text-anchor="start">A record → host public IP</text>
+<text x="306" y="431" font-size="12.5" font-weight="400" fill="#A8B8B2" text-anchor="start">Not proxied by Cloudflare</text>
+<rect x="582" y="348" width="370" height="76" rx="10" fill="#1E322C" stroke="#3D5A53" stroke-width="1.5"/>
+<text x="598" y="374" font-size="15" font-weight="650" fill="#F6ECDC" text-anchor="start" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace">ziti-controller :1280</text>
+<text x="598" y="395" font-size="12.5" font-weight="400" fill="#A8B8B2" text-anchor="start">Edge client API, OIDC, control plane only</text>
+<rect x="582" y="436" width="370" height="76" rx="10" fill="#1E322C" stroke="#3D5A53" stroke-width="1.5"/>
+<text x="598" y="462" font-size="15" font-weight="650" fill="#F6ECDC" text-anchor="start" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace">edge router :8444</text>
+<text x="598" y="483" font-size="12.5" font-weight="400" fill="#A8B8B2" text-anchor="start">Router integrated with the controller</text>
+<path d="M258 430 L290 430" fill="none" stroke="#FF7A4D" stroke-width="2" stroke-linejoin="round" marker-end="url(#arr-overlay)"/>
+<path d="M510 386 L582 386" fill="none" stroke="#FF7A4D" stroke-width="2" stroke-linejoin="round" marker-end="url(#arr-overlay)"/>
+<rect x="512.5" y="375" width="67" height="20" rx="10" fill="#0F1A18" stroke="#FF7A4D" stroke-width="1"/>
+<text x="546" y="389.5" font-size="11.5" font-weight="600" fill="#FF7A4D" text-anchor="middle">TCP 1280</text>
+<path d="M510 474 L582 474" fill="none" stroke="#FF7A4D" stroke-width="2" stroke-linejoin="round" marker-end="url(#arr-overlay)"/>
+<rect x="512.5" y="463" width="67" height="20" rx="10" fill="#0F1A18" stroke="#FF7A4D" stroke-width="1"/>
+<text x="546" y="477.5" font-size="11.5" font-weight="600" fill="#FF7A4D" text-anchor="middle">TCP 8444</text>
+</svg>

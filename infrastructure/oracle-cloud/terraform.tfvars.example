@@ -1,0 +1,34 @@
+# Oracle Cloud host for Baked Pasta - copy to terraform.tfvars (git-ignored) and edit.
+# Authentication is NOT stored here: it comes from ~/.oci/config (see README.md in this folder).
+
+tenancy_ocid = "ocid1.tenancy.oc1..your-tenancy-ocid"
+region       = "us-ashburn-1" # your home region (Always Free A1 capacity lives there)
+
+# Optional: a dedicated compartment instead of the root compartment
+# compartment_ocid = "ocid1.compartment.oc1..your-compartment-ocid"
+
+# SecurityToken = `oci session authenticate` (browser login), ApiKey = `oci setup config`
+# oci_auth           = "SecurityToken"
+# oci_config_profile = "DEFAULT"
+
+# Instance OS: "ubuntu" (Docker + ufw, user ubuntu) or "oraclelinux" (Podman + firewalld, user opc)
+# base_os = "ubuntu"
+# ubuntu_version      = "24.04"
+# oraclelinux_version = "9"
+
+# SSH public key installed for the login user (keep the private key!)
+ssh_public_key_path = "~/.ssh/id_ed25519.pub"
+
+# SSH source: empty = auto-detect your current public IP as /32
+# ssh_source_cidr = "203.0.113.10/32"
+
+# Hostname used for OpenZiti mTLS (1280/8444); only used to print the deploy command
+ziti_advertise_address = "ziti.example.com"
+
+# Always Free: VM.Standard.A1.Flex up to 2 OCPUs / 12 GB in total per tenancy, plus 200 GB of
+# boot + block storage. Pay As You Go accounts are billed for anything above that, with no cap.
+# instance_shape      = "VM.Standard.A1.Flex"
+# instance_ocpus      = 1
+# instance_memory_gbs = 6
+# availability_domain_index = 0  # try 1 or 2 on "Out of host capacity"
+# name_prefix = "openziti"

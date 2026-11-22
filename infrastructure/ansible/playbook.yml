@@ -1,0 +1,30 @@
+---
+- name: Deploy OpenZiti Zero-Trust Infrastructure (Fedora & Ubuntu)
+  hosts: all
+  become: yes
+  vars_files:
+    - vars/main.yml
+
+  tasks:
+    - name: Section - Prerequisites & Distribution Verification
+      ansible.builtin.include_tasks: tasks/prerequisites.yml
+
+    - name: Section - Container Engine Installation (Ubuntu/Debian)
+      when: ansible_facts['os_family'] == 'Debian'
+      ansible.builtin.include_tasks: tasks/docker-ubuntu.yml
+
+    - name: Section - Container Engine Installation (Fedora/RedHat)
+      when: ansible_facts['os_family'] == 'RedHat'
+      ansible.builtin.include_tasks: tasks/docker-fedora.yml
+
+    - name: Section - Zero-Trust Firewall Hardening (Ubuntu)
+      when: ansible_facts['os_family'] == 'Debian'
+      ansible.builtin.include_tasks: tasks/firewall-ubuntu.yml
+
+    - name: Section - Zero-Trust Firewall Hardening (Fedora)
+      when: ansible_facts['os_family'] == 'RedHat'
+      ansible.builtin.include_tasks: tasks/firewall-fedora.yml
+
+    - name: Section - Application & Cloudflare Tunnel Deployment
+      ansible.builtin.include_tasks: tasks/deploy-stack.yml
+

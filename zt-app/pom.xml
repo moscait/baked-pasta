@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<parent>
+		<groupId>org.springframework.boot</groupId>
+		<artifactId>spring-boot-starter-parent</artifactId>
+		<version>4.1.2</version>
+		<relativePath /> <!-- lookup parent from repository -->
+	</parent>
+	<groupId>com.example</groupId>
+	<artifactId>demo</artifactId>
+	<version>0.0.1-SNAPSHOT</version>
+	<name>zt-app</name>
+	<description>Baked Pasta demo: a Spring Boot app reachable only over the OpenZiti overlay</description>
+
+	<properties>
+		<java.version>21</java.version>
+		<openziti.version>0.36.0</openziti.version>
+		<!-- The OpenZiti SDK is written in Kotlin and needs the Kotlin and coroutines versions it was
+		     built with. Spring Boot's dependency management would otherwise downgrade them. Keep these
+		     in step with the SDK's own pom when bumping openziti.version. -->
+		<kotlin.version>2.4.21</kotlin.version>
+		<kotlin-coroutines.version>1.11.0</kotlin-coroutines.version>
+	</properties>
+
+	<dependencies>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-webmvc</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springdoc</groupId>
+			<artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+			<!-- 3.x is the line for Spring Boot 4 -->
+			<version>3.2.0</version>
+		</dependency>
+		<!-- Core OpenZiti SDK. The app binds its service with it directly (see ZitiServiceBridge);
+		     the ziti-springboot integration is not used because it targets Spring Boot 3 / Tomcat 10. -->
+		<dependency>
+			<groupId>org.openziti</groupId>
+			<artifactId>ziti</artifactId>
+			<version>${openziti.version}</version>
+			<exclusions>
+				<exclusion>
+					<groupId>org.slf4j</groupId>
+					<artifactId>slf4j-simple</artifactId>
+				</exclusion>
+			</exclusions>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-devtools</artifactId>
+			<scope>runtime</scope>
+			<optional>true</optional>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-webmvc-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+	</dependencies>
+
+	<build>
+		<plugins>
+			<plugin>
+				<groupId>org.springframework.boot</groupId>
+				<artifactId>spring-boot-maven-plugin</artifactId>
+				<configuration>
+					<requiresUnpack>
+						<dependency>
+							<groupId>com.goterl</groupId>
+							<artifactId>lazysodium-java</artifactId>
+						</dependency>
+					</requiresUnpack>
+				</configuration>
+			</plugin>
+		</plugins>
+	</build>
+
+</project>

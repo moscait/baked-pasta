@@ -1,0 +1,279 @@
+---
+- name: Validate deployment inputs
+  ansible.builtin.assert:
+    that:
+      - ziti_admin_username is regex('^[A-Za-z0-9._@-]{1,64}$')
+      - ziti_advertise_address is regex('^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?$')
+    fail_msg: >-
+      Invalid input. Admin username: letters/digits/._@- (max 64). Advertise address: hostname or IPv4.
+    quiet: true
+
+# Output is hidden (no_log) so a rejected password is never echoed. On failure the cause is:
+# admin password must be 12-128 chars with no quotes, backslashes, '$', backticks or whitespace.
+- name: Validate admin password format (12-128 chars, no quotes/backslash/$/backtick/whitespace)
+  ansible.builtin.assert:
+    that:
+      - (ziti_admin_password | default('') | length == 0) or (ziti_admin_password is regex('^[][A-Za-z0-9!#%&()*+,./:;<=>?@^_{|}~-]{12,128}$'))
+    quiet: true
+  no_log: true
+
+- name: Refuse an unauthenticated TryCloudflare Quick Tunnel unless explicitly allowed
+  ansible.builtin.assert:
+    that:
+      - (cloudflare_tunnel_token | default('') | trim | length > 0) or (allow_quick_tunnel | bool)
+    fail_msg: >-
+      No Cloudflare Tunnel token supplied. A Quick Tunnel exposes the Admin Console without Cloudflare
+      Access. Supply CLOUDFLARE_TUNNEL_TOKEN, or opt in with -e allow_quick_tunnel=true (deploy-ziti.sh --quick).
+    quiet: true
+
+# The controller sets the admin password only on first boot, when it creates its database.
+# A redeploy over existing data must therefore reuse the stored password; a newly generated
+# one would be written to .env and .ziti-credentials without being able to log in.
+- name: Check for credentials from a previous deployment
+  ansible.builtin.stat:
+    path: "{{ ziti_install_dir }}/.ziti-credentials"
+  register: existing_credentials_file
+
+- name: Read credentials from the previous deployment
+  ansible.builtin.slurp:
+    src: "{{ ziti_install_dir }}/.ziti-credentials"
+  register: existing_credentials_raw
+  when: existing_credentials_file.stat.exists
+  no_log: true
+
+- name: Extract the previously stored admin password
+  ansible.builtin.set_fact:
+    existing_ziti_password: >-
+      {{ (existing_credentials_raw.content | b64decode | regex_search('(?m)^OPENZITI_ADMIN_PASSWORD=(.+)$', '\1') | default([''], true) | first) | trim
+         if existing_credentials_file.stat.exists else '' }}
+  no_log: true
+
+# Compare secretly, then assert on the (non-secret) result so the failure message is visible.
+- name: Check whether a different admin password was supplied for an existing deployment
+  ansible.builtin.set_fact:
+    admin_password_conflict: >-
+      {{ (existing_ziti_password | length > 0) and (ziti_admin_password | default('') | length > 0)
+         and (ziti_admin_password != existing_ziti_password) }}
+  no_log: true
+
+- name: Refuse to change the admin password of an existing deployment
+  ansible.builtin.assert:
+    that:
+      - not (admin_password_conflict | bool)
+    fail_msg: >-
+      OPENZITI_ADMIN_PASSWORD differs from the password this controller was created with (stored in
+      {{ ziti_install_dir }}/.ziti-credentials). The controller cannot change it on redeploy. Unset
+      OPENZITI_ADMIN_PASSWORD to keep the stored password, change it in the Admin Console, or run a
+      full teardown first to start over.
+    quiet: true
+
+- name: Determine OpenZiti administrator password
+  ansible.builtin.set_fact:
+    active_ziti_password: >-
+      {{ existing_ziti_password if (existing_ziti_password | length > 0)
+         else ziti_admin_password if (ziti_admin_password | default('') | length > 0)
+         else lookup('password', '/dev/null chars=ascii_letters,digits length=24') }}
+  no_log: true
+
+- name: Create OpenZiti infrastructure install directory
+  ansible.builtin.file:
+    path: "{{ ziti_install_dir }}"
+    state: directory
+    owner: "{{ ziti_runtime_user }}"
+    mode: '0755'
+
+- name: Remove legacy homelab directory if present
+  ansible.builtin.file:
+    path: "/opt/homelab-zero-trust"
+    state: absent
+
+- name: Remove legacy menu directory if present
+  ansible.builtin.file:
+    path: "{{ ziti_install_dir }}/menu"
+    state: absent
+
+- name: Create nginx and console subdirectories
+  ansible.builtin.file:
+    path: "{{ ziti_install_dir }}/{{ item }}"
+    state: directory
+    owner: "{{ ziti_runtime_user }}"
+    mode: '0755'
+  loop:
+    - nginx
+    - console
+
+- name: Sanitize Cloudflare Tunnel Token
+  ansible.builtin.set_fact:
+    clean_tunnel_token: >-
+      {{ cloudflare_tunnel_token | default('', true) | regex_replace('[^A-Za-z0-9_.+/=-]', '') }}
+    clean_dns_api_token: >-
+      {{ cloudflare_dns_api_token | default('', true) | regex_replace('[^A-Za-z0-9_.-]', '') }}
+    ddns_enabled: >-
+      {{ (cloudflare_dns_api_token | default('', true) | trim | length > 0) and (ziti_advertise_address != 'ziti-controller.local') and not (ziti_advertise_address is regex('^[0-9.]+$')) }}
+
+- name: Template docker compose file (contains no secrets; they are read from .env)
+  ansible.builtin.template:
+    src: "{{ playbook_dir }}/../templates/docker-compose.yaml.j2"
+    dest: "{{ ziti_install_dir }}/docker-compose.yaml"
+    owner: "{{ ziti_runtime_user }}"
+    mode: '0600'
+
+- name: Copy nginx configuration
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../nginx/default.conf"
+    dest: "{{ ziti_install_dir }}/nginx/default.conf"
+    owner: "{{ ziti_runtime_user }}"
+    mode: '0644'
+
+- name: Copy OpenZiti Admin Console files
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../console/"
+    dest: "{{ ziti_install_dir }}/console/"
+    owner: "{{ ziti_runtime_user }}"
+    mode: '0644'
+    directory_mode: '0755'
+
+- name: Apply container SELinux context on RedHat systems
+  ansible.builtin.command:
+    cmd: "chcon -Rt container_file_t {{ ziti_install_dir }}"
+  when: ansible_facts['os_family'] == 'RedHat'
+  ignore_errors: true
+
+- name: Generate .env configuration file
+  ansible.builtin.copy:
+    dest: "{{ ziti_install_dir }}/.env"
+    # Values are single-quoted so docker compose / podman-compose treat them literally
+    # (inputs are validated above to contain no quote characters).
+    content: |
+      CLOUDFLARE_TUNNEL_TOKEN='{{ clean_tunnel_token }}'
+      CLOUDFLARE_DNS_API_TOKEN='{{ clean_dns_api_token }}'
+      OPENZITI_ADMIN_USER='{{ ziti_admin_username }}'
+      OPENZITI_ADMIN_PASSWORD='{{ active_ziti_password }}'
+      OPENZITI_ADVERTISE_ADDRESS='{{ ziti_advertise_address }}'
+    owner: "{{ ziti_runtime_user }}"
+    mode: '0600'
+  no_log: true
+
+- name: Persist OpenZiti credentials
+  ansible.builtin.copy:
+    dest: "{{ ziti_install_dir }}/.ziti-credentials"
+    content: |
+      OPENZITI_ADMIN_USER={{ ziti_admin_username }}
+      OPENZITI_ADMIN_PASSWORD={{ active_ziti_password }}
+      OPENZITI_ADVERTISE_ADDRESS={{ ziti_advertise_address }}
+    owner: "{{ ziti_runtime_user }}"
+    mode: '0600'
+  no_log: true
+
+- name: Pull container images natively
+  ansible.builtin.command:
+    cmd: "{{ 'podman' if (ansible_facts['os_family'] == 'RedHat') else 'docker' }} pull {{ item }}"
+  loop: "{{ [ziti_quickstart_image, nginx_image, cloudflared_image] + ([cloudflare_ddns_image] if (ddns_enabled | bool) else []) }}"
+  register: pull_res
+  until: pull_res is success
+  retries: 3
+  delay: 3
+
+- name: Clean up legacy or previous stack containers
+  ansible.builtin.shell: |
+    if command -v podman >/dev/null 2>&1; then
+      podman rm -f homelab-app homelab-portal homelab-tunnel openziti-console openziti-tunnel openziti-ddns ziti-controller.local ziti-setup 2>/dev/null || true
+    fi
+    if command -v docker >/dev/null 2>&1; then
+      docker rm -f homelab-app homelab-portal homelab-tunnel openziti-console openziti-tunnel openziti-ddns ziti-controller.local ziti-setup 2>/dev/null || true
+    fi
+  args:
+    chdir: "{{ ziti_install_dir }}"
+  failed_when: false
+
+- name: Deploy OpenZiti Infrastructure stack
+  ansible.builtin.shell: |
+    if command -v podman-compose >/dev/null 2>&1; then
+      podman-compose -f docker-compose.yaml up -d
+    elif command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then
+      docker compose up -d
+    elif command -v podman >/dev/null 2>&1; then
+      podman compose -f docker-compose.yaml up -d
+    else
+      docker-compose up -d
+    fi
+  args:
+    chdir: "{{ ziti_install_dir }}"
+  register: compose_up_result
+
+- name: Pause briefly for services to initialize
+  ansible.builtin.pause:
+    seconds: 5
+
+- name: Check container statuses
+  ansible.builtin.shell: |
+    if command -v podman >/dev/null 2>&1; then
+      podman ps
+    else
+      docker ps
+    fi
+  args:
+    chdir: "{{ ziti_install_dir }}"
+  register: compose_ps_result
+  changed_when: false
+
+- name: Display container status table
+  ansible.builtin.debug:
+    msg: "{{ compose_ps_result.stdout_lines }}"
+
+- name: Check for TryCloudflare Quick Tunnel URL in logs (if no token configured)
+  when: clean_tunnel_token == ''
+  block:
+    - name: Fetch cloudflared logs
+      ansible.builtin.shell: |
+        if command -v podman >/dev/null 2>&1; then
+          podman logs openziti-tunnel 2>&1
+        else
+          docker compose logs cloudflared 2>&1
+        fi
+      args:
+        chdir: "{{ ziti_install_dir }}"
+      register: cf_logs
+      changed_when: false
+      retries: 5
+      delay: 3
+      until: "'trycloudflare.com' in cf_logs.stdout"
+      ignore_errors: true
+
+    - name: Extract Quick Tunnel URL
+      ansible.builtin.set_fact:
+        quick_tunnel_url: "{{ (cf_logs.stdout + cf_logs.stderr) | regex_findall('https://[a-zA-Z0-9-]+\\.trycloudflare\\.com') | unique | first | default('Check logs with: docker compose logs cloudflared') }}"
+
+    - name: Output Quick Tunnel access URL
+      ansible.builtin.debug:
+        msg:
+          - "================================================================="
+          - "🚀 SUCCESS: Cloudflare Quick Tunnel (TryCloudflare) is ACTIVE!"
+          - "Your OpenZiti infrastructure is accessible from anywhere at:"
+          - "👉 {{ quick_tunnel_url }}"
+          - "-----------------------------------------------------------------"
+          - "Advertised Overlay Host: {{ ziti_advertise_address }} (ports {{ ziti_ctrl_port }}/{{ ziti_router_port }})"
+          - "WARNING: no Cloudflare Access in front of this URL - only the admin password protects it."
+          - "Username: {{ ziti_admin_username }}"
+          - "Password: stored in {{ ziti_install_dir }}/.ziti-credentials (sudo cat to view)"
+          - "================================================================="
+
+- name: Output deployment summary for token-based tunnels
+  when: clean_tunnel_token != ''
+  ansible.builtin.debug:
+        msg:
+          - "================================================================="
+          - "🚀 SUCCESS: OpenZiti Zero-Trust Infrastructure is ACTIVE!"
+          - "Access your OpenZiti console via your Cloudflare Zero Trust domain."
+          - "-----------------------------------------------------------------"
+          - "OpenZiti Admin Console (ZAC): http://127.0.0.1:{{ portal_local_port }}/ (loopback + Cloudflare Tunnel)"
+          - "OpenZiti Client & Ctrl Plane: https://{{ ziti_advertise_address }}:{{ ziti_ctrl_port }}/ (public mTLS)"
+          - "OpenZiti Edge Router:         tls://{{ ziti_advertise_address }}:{{ ziti_router_port }} (public mTLS)"
+          - "OpenZiti Mgmt API:            internal container network only (port {{ ziti_mgmt_port }}, via ZAC)"
+          - "Cloudflare DDNS Updater:      {{ 'ACTIVE (auto-updates ' + ziti_advertise_address + ' A record every 5m)' if (ddns_enabled | bool) else 'disabled (no --dns-token supplied)' }}"
+          - "-----------------------------------------------------------------"
+          - "Administrator Credentials:"
+          - "  Username: {{ ziti_admin_username }}"
+          - "  Password: stored in {{ ziti_install_dir }}/.ziti-credentials (sudo cat to view)"
+          - "Protect the console hostname with a Cloudflare Access policy (see infrastructure/CLOUDFLARE.md)."
+          - "================================================================="

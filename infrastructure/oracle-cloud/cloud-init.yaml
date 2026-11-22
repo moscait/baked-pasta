@@ -1,0 +1,7 @@
+#cloud-config
+# OCI's Ubuntu images ship /etc/iptables/rules.v4 with REJECT rules that allow only SSH and
+# conflict with ufw. Reset them so the playbook (tasks/firewall-ubuntu.yml) owns
+# the host firewall. Until the playbook runs, the OCI security list is the only filter.
+runcmd:
+  - [sh, -c, "printf '*filter\\n:INPUT ACCEPT [0:0]\\n:FORWARD ACCEPT [0:0]\\n:OUTPUT ACCEPT [0:0]\\nCOMMIT\\n' > /etc/iptables/rules.v4"]
+  - [sh, -c, "iptables -F INPUT && iptables -F FORWARD && iptables -P INPUT ACCEPT && iptables -P FORWARD ACCEPT"]

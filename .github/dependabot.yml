@@ -1,0 +1,60 @@
+# Keeps pinned versions current. Images are pinned by digest and Actions by commit SHA;
+# Dependabot updates both the version comment and the pin.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
+
+  - package-ecosystem: docker
+    directories:
+      - /app
+      - /zt-app
+    schedule:
+      interval: weekly
+    ignore:
+      # Each app stays on a Java LTS line (app: 25, zt-app: 21) and matches its pom's
+      # java.version; moving to another LTS is a deliberate change, not an image bump.
+      - dependency-name: eclipse-temurin
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: docker-compose
+    directories:
+      - /
+      - /infrastructure
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: maven
+    directories:
+      - /app
+      - /zt-app
+    schedule:
+      interval: weekly
+    groups:
+      maven-minor-and-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: terraform
+    directories:
+      - /infrastructure/opentofu
+      - /infrastructure/oracle-cloud
+    schedule:
+      interval: weekly
+    ignore:
+      # Cloudflare provider v5 renames and reshapes most resources; adopting it needs a
+      # config and state migration, not a constraint bump.
+      - dependency-name: cloudflare/cloudflare
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: npm
+    directory: /scripts/console-demo
+    schedule:
+      interval: weekly
+    groups:
+      console-demo:
+        patterns: ["*"]

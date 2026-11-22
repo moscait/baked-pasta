@@ -1,0 +1,19 @@
+# Cloudflare Zero Trust IaC Configuration Example for OpenZiti Infrastructure
+cloudflare_api_token  = "your-cloudflare-api-token-here"
+cloudflare_account_id = "your-account-id-here"
+cloudflare_zone_id    = "your-zone-id-here"
+domain_name           = "example.com"
+tunnel_name           = "openziti-tunnel"
+
+# Proxied via Cloudflare Tunnel + Access (Admin Console at https://zt.example.com)
+console_subdomain     = "zt"
+
+# DNS-only (grey-cloud) record for OpenZiti mTLS overlay (ziti.example.com:1280 & :8444)
+# Leave server_public_ip = "" if your home WAN IP is dynamic — the openziti-ddns container
+# will automatically create and keep the ziti.<domain> A record updated using --dns-token.
+ziti_subdomain        = "ziti"
+server_public_ip   = ""
+
+# Recommended: Enable Cloudflare Access SSO / email verification gate on the console
+enable_access_sso   = true
+allowed_user_emails = ["admin@example.com"]
