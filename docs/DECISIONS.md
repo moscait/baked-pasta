@@ -260,7 +260,9 @@ the next LTS (Java 29, expected September 2027) is out.
 **Context.** Dependabot proposed `~> 5.29`. Provider v5 renames and reshapes most resources, so
 upgrading is a configuration and state migration, not a version bump.
 
-**Decision.** Keep `~> 4.x`; Dependabot ignores major updates for `cloudflare/cloudflare`.
+**Decision.** Keep `~> 4.x`; Dependabot ignores `cloudflare/cloudflare` versions 5 and later.
+(An ignore rule for major updates was not enough: Dependabot proposed widening the requirement
+to `~> 5.29`, which it does not classify as a major update.)
 
 **Consequences.** v4 will eventually stop receiving fixes.
 

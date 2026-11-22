@@ -47,9 +47,11 @@ updates:
       interval: weekly
     ignore:
       # Cloudflare provider v5 renames and reshapes most resources; adopting it needs a
-      # config and state migration, not a constraint bump.
+      # config and state migration, not a constraint bump. Ignored by version, not by update
+      # type: for Terraform, Dependabot widens the requirement (~> 4.30 to ~> 5.29), which a
+      # semver-major rule does not catch.
       - dependency-name: cloudflare/cloudflare
-        update-types: ["version-update:semver-major"]
+        versions: [">= 5.0.0"]
 
   - package-ecosystem: npm
     directory: /scripts/console-demo
