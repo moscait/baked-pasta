@@ -190,7 +190,7 @@ Both configurations can serve either of two admin consoles, at the same URLs:
 | | **ZAC** (default) | **BPC** |
 | :--- | :--- | :--- |
 | **What** | [OpenZiti Admin Console](https://github.com/openziti/ziti-console) | Baked Pasta Console: a ZAC-compatible console built around the Access Canvas, guided service wizards and staged changes you review before applying |
-| **Build** | Sandbox: stock 4.8.0. Routable infrastructure: 4.8.1 with the Access Canvas view (see `NOTICE`) | [Release 0.2.2](https://github.com/moscait/baked-pasta-console/releases/tag/v0.2.2), served in both configurations |
+| **Build** | Sandbox: stock 4.8.0. Routable infrastructure: 4.8.1 with the Access Canvas view (see `NOTICE`) | [Release 0.2.3](https://github.com/moscait/baked-pasta-console/releases/tag/v0.2.3), served in both configurations |
 | **Source** | Pinned release, downloaded and SHA-256-verified | Pinned release, downloaded and SHA-256-verified |
 
 Select BPC with `CONSOLE=bpc` (make) or `--console bpc` (scripts):

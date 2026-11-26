@@ -35,8 +35,8 @@ OpenZiti Admin Console (ZAC)
 
 Baked Pasta Console (BPC), optional alternative to ZAC (CONSOLE=bpc)
   Source:    https://github.com/moscait/baked-pasta-console
-  Build:     release v0.2.2, ziti-console.zip,
-             sha256 5b634d1ac93d876576d9800e3fd22d9517bbd1cf38d3d962851769a27d7fd8ec
+  Build:     release v0.2.3, ziti-console.zip,
+             sha256 0f2fca53b4d52e08320c8f5e121227df90be4a410c83202674eb4c4be30b0643
   License:   Apache License, Version 2.0
 
 The logo wordmark in assets/logo/ is set in Fraunces, Copyright 2018 The
