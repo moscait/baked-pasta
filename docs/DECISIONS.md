@@ -417,5 +417,13 @@ it against the SHA-256 GitHub records for it, and rewrites the pin in `scripts/f
 is deployed and a new BPC release reaches a host only after someone pins and commits it. An
 option to install "latest" at deploy time was considered and rejected for that reason.
 
+**Update 2026-11-26 (fabric API).** BPC's Network Map (from v0.1.2) also reads the controller's
+fabric API (`/fabric/v1/routers`, `links`, `circuits`). Both nginx configs forwarded only `/edge/`,
+so `/fabric/` fell through to the console's `index.html` and the map got HTML instead of JSON.
+They now forward `/edge/` and `/fabric/` to the same controller listener, which already binds
+`fabric` (no controller change needed). Verified in the sandbox: all three endpoints return JSON
+through nginx and the Network Map shows no "fabric API did not answer" warning. On the routable
+host, `/fabric/v1` now reaches the controller (401 JSON without a session) instead of the console.
+
 **Revisit when** BPC is ready to be the default (then consider whether the modified ZAC build in
 D-04 is still needed).

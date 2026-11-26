@@ -5,7 +5,7 @@ This guide explains the Cloudflare setup required **before** running `./deploy-z
 Because Cloudflare Tunnel proxies **HTTP(S)** while OpenZiti clients (iPhones, laptops, remote app containers) require **end-to-end mutual TLS**, Configuration 2 uses **two DNS hostnames** in your Cloudflare zone:
 
 1. **Admin Console (`zt.<domain>`) — Proxied (orange cloud) via Cloudflare Tunnel + Access.**
-   Serves the OpenZiti Admin Console (ZAC) and its `/edge/` management API proxy. Zero inbound web ports are opened on the host (`8080` is bound to `127.0.0.1`), and the controller's management API (`1281`) is isolated to the internal Docker network so it **cannot** be reached without passing Cloudflare Access first.
+   Serves the admin console (ZAC, or BPC if chosen) and its `/edge/` and `/fabric/` management API proxy. Zero inbound web ports are opened on the host (`8080` is bound to `127.0.0.1`), and the controller's management API (`1281`) is isolated to the internal Docker network so it **cannot** be reached without passing Cloudflare Access first.
 2. **OpenZiti Overlay (`ziti.<domain>`) — DNS-only (grey cloud) `A` record → host public IP (automatically kept updated by `openziti-ddns`).**
    Carries encrypted mTLS traffic directly to the host on **TCP `1280`** (client enrollment, authentication, and router control plane — *no management API*) and **TCP `8444`** (edge router data plane). When you provide a Zone.DNS:Edit-only token via `CLOUDFLARE_DNS_API_TOKEN`, the host starts the `openziti-ddns` sidecar (`favonia/cloudflare-ddns`), which automatically creates the `ziti.<domain>` `A` record (`PROXIED=false`, `TTL=120`) and updates it whenever your home ISP changes your WAN IP.
 
@@ -22,7 +22,7 @@ You can configure Cloudflare either **manually in the dashboard** ([Option A](#o
 
 | Hostname / Port | Exposure | Purpose |
 |---|---|---|
-| `zt.<domain>` | Cloudflare Tunnel + Access (proxied) | ZAC web UI + `/edge/` management proxy |
+| `zt.<domain>` | Cloudflare Tunnel + Access (proxied) | Console web UI + `/edge/` and `/fabric/` management proxy |
 | `127.0.0.1:8080` on host | Loopback only | `openziti-console` (nginx) — origin for `cloudflared` |
 | `ziti-controller.local:1281` | Internal container network only | Controller `edge-management` & `fabric` APIs (unreachable from WAN/LAN; returns `404` on port `1280`) |
 | `ziti.<domain>:1280` | Public TCP (`ufw` / `firewalld` allowed) | Controller `edge-client`, `edge-oidc` (enrollment/auth) & router control plane |
@@ -106,13 +106,13 @@ Save the tunnel. Cloudflare automatically creates the proxied `CNAME zt → <tun
 
 ### A4. Protect the console with Cloudflare Access (required for a secure deployment)
 
-Without this step, **anyone on the internet can reach the ZAC login page and the OpenZiti management API** (proxied under `/edge/`) at `https://zt.example.com`, protected only by the admin password.
+Without this step, **anyone on the internet can reach the ZAC login page and the OpenZiti management API** (proxied under `/edge/` and `/fabric/`) at `https://zt.example.com`, protected only by the admin password.
 
 1. Go to **Zero Trust → Access → Applications → Add an application → Self-hosted**.
 2. Configure:
    - **Application name:** `OpenZiti Console Access`
    - **Session duration:** `24h`
-   - **Public hostname / Application domain:** `zt.example.com` — leave the path empty so the policy covers both `/` and `/edge/`.
+   - **Public hostname / Application domain:** `zt.example.com` — leave the path empty so the policy covers `/`, `/edge/` and `/fabric/`.
 3. Add a policy:
    - **Policy name:** `Allow Authorized Emails`
    - **Action:** `Allow`
