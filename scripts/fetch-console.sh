@@ -65,11 +65,11 @@ case "$CONSOLE:$TARGET" in
         LABEL="OpenZiti Admin Console 4.8.1 + Access Canvas (35f72f9)"
         ;;
     bpc:*)
-        # Release v0.1.0 of https://github.com/moscait/baked-pasta-console (tag at 00c3947). One
+        # Release v0.1.1 of https://github.com/moscait/baked-pasta-console (tag at 497f63b). One
         # build serves both targets: it is built for /zac/, and the infrastructure serves /zac/ too.
-        URL="https://github.com/moscait/baked-pasta-console/releases/download/v0.1.0/ziti-console.zip"
-        SHA256="197b80289a30acca0233ba400d2a22449a091052454af30c38553f20034d1b7c"
-        LABEL="Baked Pasta Console 0.1.0"
+        URL="https://github.com/moscait/baked-pasta-console/releases/download/v0.1.1/ziti-console.zip"
+        SHA256="0da651983f608e8e6c092067650b1751ab962decb532e6c81663c8dd93b44a46"
+        LABEL="Baked Pasta Console 0.1.1"
         ;;
     *)
         echo "Unknown console '$CONSOLE' (expected: zac or bpc)" >&2
