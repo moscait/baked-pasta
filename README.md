@@ -190,18 +190,20 @@ Both configurations can serve either of two admin consoles, at the same URLs:
 | | **ZAC** (default) | **BPC** |
 | :--- | :--- | :--- |
 | **What** | [OpenZiti Admin Console](https://github.com/openziti/ziti-console) | Baked Pasta Console: a ZAC-compatible console built around the Access Canvas, guided service wizards and staged changes you review before applying |
-| **Build** | Sandbox: stock 4.8.0. Routable infrastructure: 4.8.1 with the Access Canvas view (see `NOTICE`) | One build, served in both configurations |
-| **Source** | Pinned release, downloaded and SHA-256-verified | A local checkout or archive until BPC has a published release |
+| **Build** | Sandbox: stock 4.8.0. Routable infrastructure: 4.8.1 with the Access Canvas view (see `NOTICE`) | [Release 0.1.0](https://github.com/moscait/baked-pasta-console/releases/tag/v0.1.0), served in both configurations |
+| **Source** | Pinned release, downloaded and SHA-256-verified | Pinned release, downloaded and SHA-256-verified |
 
-Select BPC with `CONSOLE=bpc` and point at a checkout (built with `npm`) or an archive made with `npm run package:zac`:
+Select BPC with `CONSOLE=bpc` (make) or `--console bpc` (scripts):
 
 ```bash
-make sandbox-up CONSOLE=bpc BPC_DIR=../baked-pasta-console
-make ziti-ssh TARGET=user@192.0.2.10 ADVERTISE=ziti.example.com CONSOLE=bpc BPC_ZIP=../baked-pasta-console/baked-pasta-console.zip
-./deploy-ziti.sh --ssh user@192.0.2.10 -a ziti.example.com --console bpc     # with BPC_DIR or BPC_ZIP set
+make sandbox-up CONSOLE=bpc
+make ziti-ssh TARGET=user@192.0.2.10 ADVERTISE=ziti.example.com CONSOLE=bpc
+./deploy-ziti.sh --ssh user@192.0.2.10 -a ziti.example.com --console bpc
 ```
 
-Setting `BAKED_PASTA_CONSOLE=bpc` in your environment makes BPC the default. Switching consoles replaces the installed one; running again with the same console keeps it (add `FORCE=1` or `--force` to reinstall, or pass `BPC_DIR`/`BPC_ZIP` to rebuild). To swap the console on a running deployment without touching the controller, use `make console-update TARGET=user@host CONSOLE=bpc ...`.
+To try unreleased BPC work, add `BPC_DIR=../baked-pasta-console` (builds that checkout with `npm`) or `BPC_ZIP=<archive>` (an archive made with `npm run package:zac`).
+
+Setting `BAKED_PASTA_CONSOLE=bpc` in your environment makes BPC the default. Switching consoles replaces the installed one, and so does a newer pinned release. Otherwise, running again with the same console keeps it (add `FORCE=1` or `--force` to reinstall, or pass `BPC_DIR`/`BPC_ZIP` to rebuild). To swap the console on a running deployment without touching the controller, use `make console-update TARGET=user@host CONSOLE=bpc ...`.
 
 ---
 

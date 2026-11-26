@@ -111,7 +111,7 @@ Credentials are saved on the host at `/opt/openziti/.ziti-credentials` (`mode 06
 
 ## 🖥 Updating or Customizing the Admin Console
 
-`infrastructure/console/` holds the console that gets deployed. It is build output and is not committed: `deploy-ziti.sh` installs the selected console when it's missing (`scripts/fetch-console.sh infrastructure`, or `make console-fetch`). By default that is ZAC: a pinned build with the Access Canvas view (see `NOTICE`), checked against the SHA-256 recorded in the script. To deploy the Baked Pasta Console (BPC) instead, add `--console bpc` (or `CONSOLE=bpc` with `make`) and set `BPC_DIR` or `BPC_ZIP`; see [Choosing the Admin Console](../README.md#-choosing-the-admin-console-zac-or-bpc). To test a fork, a branch, or an unreleased fix, build the console from source and push only the console to a running host:
+`infrastructure/console/` holds the console that gets deployed. It is build output and is not committed: `deploy-ziti.sh` installs the selected console when it's missing (`scripts/fetch-console.sh infrastructure`, or `make console-fetch`). By default that is ZAC: a pinned build with the Access Canvas view (see `NOTICE`), checked against the SHA-256 recorded in the script. To deploy the Baked Pasta Console (BPC) instead, add `--console bpc` (or `CONSOLE=bpc` with `make`); it is pinned the same way; see [Choosing the Admin Console](../README.md#-choosing-the-admin-console-zac-or-bpc). To test a fork, a branch, or an unreleased fix, build the console from source and push only the console to a running host:
 
 ```bash
 # Build from a git repo and ref (default: upstream openziti/ziti-console@main)...

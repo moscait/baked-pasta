@@ -91,8 +91,9 @@ Options:
                               deployment, then restart the console container. No tunnel token
                               needed; the controller, PKI and identities are untouched.
       --console <zac|bpc>     Admin console to deploy: zac (OpenZiti Admin Console, default) or bpc
-                              (Baked Pasta Console). Also BAKED_PASTA_CONSOLE. For bpc, set BPC_DIR
-                              to a checkout to build, or BPC_ZIP to a built archive.
+                              (Baked Pasta Console). Also BAKED_PASTA_CONSOLE. bpc installs the pinned
+                              release; set BPC_DIR (a checkout) or BPC_ZIP (an archive) to use
+                              an unreleased build instead.
       --check-token           Check that CLOUDFLARE_TUNNEL_TOKEN is a well-formed tunnel token,
                               print the tunnel ID it belongs to, and exit without deploying.
   -h, --help                  Show this help message.

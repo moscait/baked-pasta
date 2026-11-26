@@ -365,7 +365,7 @@ file, same SHA-256).
 
 ## D-17: The admin console is selectable: ZAC or BPC
 
-*Status: Accepted 2026-11-20.*
+*Status: Accepted 2026-11-20. Updated 2026-11-26: BPC v0.1.0 is pinned.*
 
 **Context.** The Access Canvas started as a modification of ZAC (D-04). It is now growing into
 its own console, the Baked Pasta Console (BPC): a separate React project that speaks the same
@@ -396,7 +396,16 @@ The infrastructure nginx config served the same build at `/` and `/zac/`.
 `.console-source` file records what was installed. The console choice is per run: running
 again without `CONSOLE=bpc` switches back to ZAC, unless `BAKED_PASTA_CONSOLE` is set.
 
-**Revisit when** BPC publishes releases: pin the release URL and SHA-256 in
-`scripts/fetch-console.sh` (one build serves both configurations) and drop the local-build
-requirement. Then consider making BPC the default, and whether the modified ZAC build (D-04)
-is still needed.
+**Update 2026-11-26.** BPC now publishes releases from a tag-triggered workflow in its own
+repository. `scripts/fetch-console.sh` pins v0.1.0 (`ziti-console.zip`, SHA-256 `197b8028...`),
+verified like ZAC, so `CONSOLE=bpc` needs no checkout; `BPC_DIR` and `BPC_ZIP` remain for
+unreleased work. Pinned installs record their checksum (`pin=` in `.console-source`), so
+bumping a pin replaces the installed console on the next run, while local builds, archives
+and custom ZAC builds are still kept without `--force`. Verified: the v0.1.0 asset downloaded
+anonymously matches GitHub's digest; in the sandbox, headless Chrome reached the login page on
+the first visit, signed in, and loaded the canvas and the services, identities, policies and
+routers pages with live data. It was then deployed to a routable host.
+
+**Revisit when** BPC is ready to be the default (then consider whether the modified ZAC build in
+D-04 is still needed), or a new BPC release is cut: bump the URL and SHA-256 in
+`scripts/fetch-console.sh` and `NOTICE`.

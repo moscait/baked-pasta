@@ -4,22 +4,24 @@
 #
 #   zac  OpenZiti Admin Console (default). A pinned build is downloaded and its SHA-256 verified.
 #   bpc  Baked Pasta Console, a ZAC-compatible console with the Access Canvas and guided service
-#        wizards. Until it has a published release, build it from a local checkout (BPC_DIR) or
-#        install an archive you built (BPC_ZIP).
+#        wizards. A pinned release is downloaded and its SHA-256 verified; to try unreleased work,
+#        build it from a local checkout (BPC_DIR) or install an archive you built (BPC_ZIP).
 #
 #   scripts/fetch-console.sh sandbox                  # -> menu/zac/               (stock upstream ZAC)
 #   scripts/fetch-console.sh infrastructure           # -> infrastructure/console/ (ZAC + Access Canvas)
 #   scripts/fetch-console.sh <target> --console bpc   # Baked Pasta Console instead
 #   scripts/fetch-console.sh <target> --force         # replace an existing console, e.g. a custom build
 #
-#   BPC_DIR=../baked-pasta-console   build BPC from that checkout (npm, Node 20+), then install it
-#   BPC_ZIP=path/to/console.zip      install a BPC archive built with `npm run package:zac`
+#   BPC_DIR=../baked-pasta-console   instead of the release: build BPC from that checkout (npm)
+#   BPC_ZIP=path/to/console.zip      instead of the release: install a BPC archive built with
+#                                    `npm run package:zac`
 #   BAKED_PASTA_CONSOLE=bpc          default for --console
 #
-# Each install writes .console-source, recording which console it is. A console of the requested
-# kind is left alone unless --force is given (or a BPC source is passed), so a ZAC built with
-# scripts/build-console.sh is never overwritten by accident; switching between zac and bpc
-# replaces it. Called automatically by `make sandbox-up` and by deploy-ziti.sh.
+# Each install writes .console-source, recording which console it is and, for a pinned download,
+# its checksum. A console of the requested kind is left alone unless --force is given (or a BPC
+# source is passed), so a ZAC built with scripts/build-console.sh or a local BPC build is never
+# overwritten by accident. Switching between zac and bpc replaces it, and so does a change of the
+# pinned release (a pinned install whose checksum differs from the pin above). Called automatically by `make sandbox-up` and by deploy-ziti.sh.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -63,11 +65,11 @@ case "$CONSOLE:$TARGET" in
         LABEL="OpenZiti Admin Console 4.8.1 + Access Canvas (35f72f9)"
         ;;
     bpc:*)
-        # Baked Pasta Console has no published release yet. When it does, pin it here (one build
-        # serves both targets: it is built for /zac/ and the infrastructure serves /zac/ too).
-        URL=""
-        SHA256=""
-        LABEL="Baked Pasta Console"
+        # Release v0.1.0 of https://github.com/moscait/baked-pasta-console (tag at 00c3947). One
+        # build serves both targets: it is built for /zac/, and the infrastructure serves /zac/ too.
+        URL="https://github.com/moscait/baked-pasta-console/releases/download/v0.1.0/ziti-console.zip"
+        SHA256="197b80289a30acca0233ba400d2a22449a091052454af30c38553f20034d1b7c"
+        LABEL="Baked Pasta Console 0.1.0"
         ;;
     *)
         echo "Unknown console '$CONSOLE' (expected: zac or bpc)" >&2
@@ -78,8 +80,12 @@ esac
 # What is installed now: the recorded console, "zac" for a console without a record (the pinned
 # ZAC from before records existed, or a build from scripts/build-console.sh), or nothing.
 INSTALLED=""
+INSTALLED_PIN=""
 if [ -f "$DEST/index.html" ]; then
-    [ -f "$DEST/.console-source" ] && INSTALLED="$(sed -n 's/^console=//p' "$DEST/.console-source" | head -n 1)"
+    if [ -f "$DEST/.console-source" ]; then
+        INSTALLED="$(sed -n 's/^console=//p' "$DEST/.console-source" | head -n 1)"
+        INSTALLED_PIN="$(sed -n 's/^pin=//p' "$DEST/.console-source" | head -n 1)"
+    fi
     INSTALLED="${INSTALLED:-zac}"
 fi
 
@@ -87,8 +93,12 @@ BPC_SOURCE_GIVEN=false
 [ "$CONSOLE" = bpc ] && { [ -n "${BPC_DIR:-}" ] || [ -n "${BPC_ZIP:-}" ]; } && BPC_SOURCE_GIVEN=true
 
 if [ "$INSTALLED" = "$CONSOLE" ] && [ "$FORCE" = false ] && [ "$BPC_SOURCE_GIVEN" = false ]; then
-    echo "✔ $(echo "$CONSOLE" | tr '[:lower:]' '[:upper:]') already present in $REL_DEST (use --force to replace it)."
-    exit 0
+    if [ -n "$INSTALLED_PIN" ] && [ "$INSTALLED_PIN" != "$SHA256" ]; then
+        echo "▶ The pinned console release changed; replacing the one in $REL_DEST."
+    else
+        echo "✔ $(echo "$CONSOLE" | tr '[:lower:]' '[:upper:]') already present in $REL_DEST (use --force to replace it)."
+        exit 0
+    fi
 fi
 
 if command -v sha256sum >/dev/null 2>&1; then
@@ -98,6 +108,7 @@ else
 fi
 need() { command -v "$1" >/dev/null 2>&1 || { echo "Error: '$1' is required to $2." >&2; exit 1; }; }
 
+PIN=""
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 mkdir "$WORK/console"
@@ -134,10 +145,9 @@ else
             exit 1
         fi
         DETAIL="$URL, sha256 $SHA256 (verified)"
+        PIN="$SHA256"
     else
-        echo "Error: the Baked Pasta Console (BPC) has no published release yet." >&2
-        echo "  Build it from a checkout:  BPC_DIR=../baked-pasta-console $0 $TARGET --console bpc" >&2
-        echo "  or install an archive:     BPC_ZIP=path/to/baked-pasta-console.zip $0 $TARGET --console bpc" >&2
+        echo "Error: no pinned download for console '$CONSOLE' ($TARGET)." >&2
         exit 1
     fi
     unzip -q "$WORK/console.zip" -d "$WORK/console"
@@ -148,7 +158,10 @@ if [ "$CONSOLE" = bpc ] && ! grep -q '/zac/' "$WORK/console/index.html"; then
     echo "Error: this BPC build was not made for /zac/. Build it with 'npm run package:zac'." >&2
     exit 1
 fi
-printf 'console=%s\nname=%s\nsource=%s\n' "$CONSOLE" "$LABEL" "$DETAIL" > "$WORK/console/.console-source"
+{
+    printf 'console=%s\nname=%s\nsource=%s\n' "$CONSOLE" "$LABEL" "$DETAIL"
+    if [ -n "$PIN" ]; then printf 'pin=%s\n' "$PIN"; fi
+} > "$WORK/console/.console-source"
 
 # Replace the destination only after a complete, verified unpack.
 mkdir -p "$(dirname "$DEST")"

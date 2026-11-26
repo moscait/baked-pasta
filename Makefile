@@ -80,8 +80,9 @@ $(foreach app,$(APPS),$(eval $(call APP_RULES,$(app))))
 	@echo "    Admin password stored in .env (user: admin)."
 
 # Admin console for both configurations: zac (OpenZiti Admin Console, default) or bpc (Baked
-# Pasta Console). For bpc, pass BPC_DIR=<checkout> to build it or BPC_ZIP=<archive> to install one.
-# Example: make sandbox-up CONSOLE=bpc BPC_DIR=../baked-pasta-console
+# Pasta Console). Both install a pinned, sha256-verified release. For an unreleased BPC, also pass
+# BPC_DIR=<checkout> to build it or BPC_ZIP=<archive> to install one.
+# Example: make sandbox-up CONSOLE=bpc
 CONSOLE ?= $(or $(BAKED_PASTA_CONSOLE),zac)
 CONSOLE_ENV = BAKED_PASTA_CONSOLE='$(CONSOLE)' $(if $(BPC_DIR),BPC_DIR='$(BPC_DIR)',) $(if $(BPC_ZIP),BPC_ZIP='$(BPC_ZIP)',)
 
