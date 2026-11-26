@@ -201,6 +201,8 @@ make ziti-ssh TARGET=user@192.0.2.10 ADVERTISE=ziti.example.com CONSOLE=bpc
 ./deploy-ziti.sh --ssh user@192.0.2.10 -a ziti.example.com --console bpc
 ```
 
+To move to a newer BPC release, run `make bpc-pin` (or `make bpc-pin VERSION=v0.1.2`). It checks the release against GitHub's checksum and updates the pin. Commit that, then deploy as usual; the changed pin replaces the installed console.
+
 To try unreleased BPC work, add `BPC_DIR=../baked-pasta-console` (builds that checkout with `npm`) or `BPC_ZIP=<archive>` (an archive made with `npm run package:zac`).
 
 Setting `BAKED_PASTA_CONSOLE=bpc` in your environment makes BPC the default. Switching consoles replaces the installed one, and so does a newer pinned release. Otherwise, running again with the same console keeps it (add `FORCE=1` or `--force` to reinstall, or pass `BPC_DIR`/`BPC_ZIP` to rebuild). To swap the console on a running deployment without touching the controller, use `make console-update TARGET=user@host CONSOLE=bpc ...`.

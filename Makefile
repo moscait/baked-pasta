@@ -130,6 +130,13 @@ ziti-ssh:
 	 $(if $(PASSWORD),OPENZITI_ADMIN_PASSWORD='$(PASSWORD)',) \
 	 $(CONSOLE_ENV) ./deploy-ziti.sh --ssh '$(TARGET)' $(if $(ADVERTISE),--advertise-address '$(ADVERTISE)',) $(if $(filter command line,$(origin USER)),-u '$(USER)',) $(if $(QUICK),--quick,)
 
+# Pin a Baked Pasta Console release (checks it against GitHub's checksum and updates the pin in
+# scripts/fetch-console.sh, NOTICE and README.md). Review and commit, then deploy as usual.
+# Example: make bpc-pin VERSION=v0.1.2   (default: latest)
+.PHONY: bpc-pin
+bpc-pin:
+	@./scripts/pin-bpc.sh $(or $(VERSION),latest)
+
 # Install the selected console (CONSOLE=zac|bpc, see above) into infrastructure/console/.
 # deploy-ziti.sh does this automatically. FORCE=1 replaces a custom build.
 console-fetch:

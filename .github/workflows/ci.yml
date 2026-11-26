@@ -51,7 +51,7 @@ jobs:
       - name: ShellCheck
         run: |
           shellcheck -S warning deploy-ziti.sh infrastructure/deploy.sh \
-            scripts/fetch-console.sh scripts/build-console.sh \
+            scripts/fetch-console.sh scripts/build-console.sh scripts/pin-bpc.sh \
             scripts/console-demo/run-demo.sh scripts/console-demo/seed.sh
 
       - name: Validate compose files

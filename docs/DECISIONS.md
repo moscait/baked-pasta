@@ -406,10 +406,16 @@ anonymously matches GitHub's digest; in the sandbox, headless Chrome reached the
 the first visit, signed in, and loaded the canvas and the services, identities, policies and
 routers pages with live data. It was then deployed to a routable host.
 
-**Update 2026-11-26 (later).** Pinned BPC v0.1.1 (tag at `497f63b`, SHA-256 `0da65198...`),
+**Update 2026-11-26 (later).** Pinned BPC v0.1.1 (commit `0fc12fc`, SHA-256 `0da65198...`),
 which shows the console version on the login screen and in the sidebar. It was the first
 upgrade through the pin check: the deploy replaced v0.1.0 without `--force`.
 
+**Update 2026-11-26 (pin helper).** `make bpc-pin [VERSION=vX.Y.Z]` (`scripts/pin-bpc.sh`,
+default `latest`) moves the pin: it looks the release up on GitHub, downloads the asset, checks
+it against the SHA-256 GitHub records for it, and rewrites the pin in `scripts/fetch-console.sh`,
+`NOTICE` and the README. Deploying stays a separate step, so the repository always records what
+is deployed and a new BPC release reaches a host only after someone pins and commits it. An
+option to install "latest" at deploy time was considered and rejected for that reason.
+
 **Revisit when** BPC is ready to be the default (then consider whether the modified ZAC build in
-D-04 is still needed), or a new BPC release is cut: bump the URL and SHA-256 in
-`scripts/fetch-console.sh` and `NOTICE`.
+D-04 is still needed).
