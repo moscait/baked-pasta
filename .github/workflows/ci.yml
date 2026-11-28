@@ -65,4 +65,5 @@ jobs:
       - name: Diagrams match their generator
         run: |
           python3 scripts/diagrams/build_diagrams.py
+          python3 scripts/diagrams/build_why_openziti_diagrams.py
           git diff --exit-code -- assets/diagrams/

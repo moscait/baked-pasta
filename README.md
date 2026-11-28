@@ -7,7 +7,7 @@
 
 Everything ziti needs, layered and baked: zero-trust architecture and demo environments built on [OpenZiti](https://openziti.io).
 
-> **New to OpenZiti?** Read **[Why Use OpenZiti?](docs/WHY-OPENZITI.md)** (or present it in a browser with the **[interactive slide show](docs/why-openziti-slides.html)**) for a jargon-free overview with diagrams.
+> **New to OpenZiti?** Read **[Why Use OpenZiti?](docs/WHY-OPENZITI.md)** or present it live in your browser with the **[interactive slide show](https://moscait.github.io/baked-pasta/docs/why-openziti-slides.html)** (also works offline from [`docs/why-openziti-slides.html`](docs/why-openziti-slides.html)).
 
 > [!NOTE]
 > Both configurations run OpenZiti's `quickstart` container image, which bundles a single controller and edge router with an automatically generated PKI. This project is intended for demos, evaluation and small self-hosted use. It is not a highly available production deployment.
