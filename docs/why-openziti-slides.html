@@ -1,0 +1,977 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Why Use OpenZiti? — Interactive Slide Show</title>
+  <meta name="color-scheme" content="light dark">
+  <script>
+    try {
+      const saved = localStorage.getItem("why-openziti-color-scheme");
+      if (saved === "light" || saved === "dark") {
+        document.querySelector('meta[name="color-scheme"]').content = saved;
+      }
+    } catch (_) {}
+  </script>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: light-dark(#FFFDF9, #0F1A18);
+      --surface: light-dark(#F6ECDC, #15241F);
+      --card: light-dark(#FFFFFF, #1E322C);
+      --border: light-dark(#D9C7A6, #324B45);
+      --ink: light-dark(#14302B, #F6ECDC);
+      --muted: light-dark(#52635E, #A8B8B2);
+      --accent: light-dark(#D9481C, #FF7A4D);
+      --accent-soft: light-dark(#FFF1E6, #2D1F18);
+      --good: light-dark(#1E6B52, #5FD3A8);
+      --good-soft: light-dark(#E8F5EF, #143026);
+      --bad: light-dark(#B83227, #FF7E75);
+      --bad-soft: light-dark(#FDECEB, #331A19);
+      --badge: light-dark(#FBE3A6, #3B3220);
+      --badge-ink: light-dark(#14302B, #FBE3A6);
+      --shadow: light-dark(0 18px 42px rgba(20, 48, 43, 0.08), 0 18px 42px rgba(0, 0, 0, 0.42));
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+
+      &:has(> head > meta[name="color-scheme"][content="dark"]) {
+        color-scheme: dark;
+      }
+      &:has(> head > meta[name="color-scheme"][content="light"]) {
+        color-scheme: light;
+      }
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: var(--font-sans);
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Theme-aware diagram switching (follows both OS default and explicit <meta> override) */
+    .diagram-dark { display: none; }
+    .diagram-light { display: block; }
+
+    @media (prefers-color-scheme: dark) {
+      :root:not(:has(> head > meta[name="color-scheme"][content="light"])) .diagram-light { display: none; }
+      :root:not(:has(> head > meta[name="color-scheme"][content="light"])) .diagram-dark { display: block; }
+    }
+    :root:has(> head > meta[name="color-scheme"][content="dark"]) .diagram-light { display: none; }
+    :root:has(> head > meta[name="color-scheme"][content="dark"]) .diagram-dark { display: block; }
+
+    /* Theme toggle icon branching */
+    .icon-to-light { display: none; }
+    .icon-to-dark { display: inline; }
+    @media (prefers-color-scheme: dark) {
+      :root:not(:has(> head > meta[name="color-scheme"][content="light"])) .icon-to-dark { display: none; }
+      :root:not(:has(> head > meta[name="color-scheme"][content="light"])) .icon-to-light { display: inline; }
+    }
+    :root:has(> head > meta[name="color-scheme"][content="dark"]) .icon-to-dark { display: none; }
+    :root:has(> head > meta[name="color-scheme"][content="dark"]) .icon-to-light { display: inline; }
+
+    /* Deck layout */
+    .deck-shell {
+      display: grid;
+      grid-template-rows: 1fr auto auto;
+      height: 100dvh;
+      overflow: hidden;
+    }
+
+    .stage {
+      position: relative;
+      display: grid;
+      place-items: center;
+      padding: clamp(14px, 2.5vw, 32px);
+      overflow: hidden;
+    }
+
+    .slide {
+      display: none;
+      width: min(1140px, 100%);
+      max-height: 100%;
+      overflow-y: auto;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: clamp(22px, 3.2vw, 44px);
+      box-shadow: var(--shadow);
+    }
+
+    .slide.active {
+      display: flex;
+      flex-direction: column;
+      gap: clamp(14px, 1.8vw, 22px);
+      @media (prefers-reduced-motion: no-preference) {
+        animation: slide-in 240ms cubic-bezier(0.22, 1, 0.36, 1);
+      }
+    }
+
+    @keyframes slide-in {
+      from { opacity: 0; translate: 0 10px; }
+      to { opacity: 1; translate: 0 0; }
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      width: fit-content;
+      padding: 4px 12px;
+      border-radius: 999px;
+      background: var(--badge);
+      color: var(--badge-ink);
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(2rem, 4.2vw, 3.3rem);
+      line-height: 1.1;
+      letter-spacing: -0.02em;
+    }
+
+    h2 {
+      margin: 0;
+      font-size: clamp(1.45rem, 2.6vw, 2.15rem);
+      line-height: 1.18;
+      letter-spacing: -0.015em;
+    }
+
+    .lead {
+      margin: 0;
+      font-size: clamp(1rem, 1.45vw, 1.22rem);
+      color: var(--muted);
+      max-width: 72ch;
+    }
+
+    .hero-slide {
+      justify-content: center;
+      min-height: min(560px, 76dvh);
+      background:
+        radial-gradient(circle at 92% 12%, var(--accent-soft), transparent 45%),
+        radial-gradient(circle at 8% 92%, var(--good-soft), transparent 45%),
+        var(--card);
+    }
+
+    .hero-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 6px;
+    }
+
+    .hero-pill {
+      padding: 8px 14px;
+      border-radius: 10px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      font-size: 0.92rem;
+      font-weight: 600;
+    }
+
+    .diagram-frame {
+      margin: 0;
+      border-radius: 14px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      background: var(--bg);
+    }
+
+    .diagram-frame img {
+      width: 100%;
+      height: auto;
+      max-height: 54dvh;
+      object-fit: contain;
+    }
+
+    .takeaways {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+      gap: 12px;
+    }
+
+    .takeaway {
+      padding: 12px 15px;
+      border-radius: 12px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      font-size: 0.93rem;
+    }
+
+    .takeaway strong {
+      display: block;
+      margin-bottom: 3px;
+      color: var(--ink);
+    }
+
+    .takeaway span { color: var(--muted); }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 14px;
+    }
+
+    .role-card {
+      padding: 18px 20px;
+      border-radius: 14px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+    }
+
+    .role-card h3 {
+      margin: 0 0 6px;
+      font-size: 1.05rem;
+      color: var(--accent);
+    }
+
+    .role-card p {
+      margin: 0;
+      font-size: 0.94rem;
+      color: var(--muted);
+    }
+
+    .myth-card {
+      padding: 16px 18px;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+    }
+
+    .myth-q {
+      font-weight: 700;
+      color: var(--bad);
+      margin-bottom: 6px;
+      font-size: 0.98rem;
+    }
+
+    .myth-a {
+      color: var(--ink);
+      font-size: 0.94rem;
+    }
+
+    .compare-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.93rem;
+    }
+
+    .compare-table th,
+    .compare-table td {
+      text-align: left;
+      padding: 11px 14px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .compare-table th {
+      background: var(--surface);
+      font-size: 0.84rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--muted);
+    }
+
+    .compare-table td.good {
+      color: var(--good);
+      font-weight: 600;
+    }
+
+    .code-box {
+      padding: 14px 18px;
+      border-radius: 12px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      font-family: var(--font-mono);
+      font-size: 0.95rem;
+      color: var(--ink);
+      overflow-x: auto;
+    }
+
+    /* Speaker notes drawer */
+    .notes-panel {
+      display: none;
+      padding: 12px 24px;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+
+    .notes-panel.open { display: block; }
+    .notes-panel strong { color: var(--ink); margin-right: 6px; }
+
+    /* Bottom control bar */
+    .controls {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 10px 20px;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      position: relative;
+    }
+
+    .progress-track {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: var(--border);
+    }
+
+    .progress-fill {
+      height: 100%;
+      width: 10%;
+      background: var(--accent);
+      transition: width 220ms ease-out;
+    }
+
+    .ctrl-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn {
+      appearance: none;
+      border: 1px solid var(--border);
+      background: var(--card);
+      color: var(--ink);
+      border-radius: 9px;
+      padding: 6px 12px;
+      font: 600 0.84rem/1.2 var(--font-sans);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn:hover { border-color: var(--accent); }
+    .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn[aria-pressed="true"] {
+      background: var(--accent);
+      color: #FFFFFF;
+      border-color: var(--accent);
+    }
+
+    .counter {
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      color: var(--muted);
+      min-width: 64px;
+      text-align: center;
+    }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    /* Native modal dialogs (Overview Grid & Shortcuts) */
+    dialog:modal {
+      overscroll-behavior: contain;
+      max-width: min(920px, 92vw);
+      max-height: 86dvh;
+      width: 100%;
+      padding: 24px;
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      background: var(--card);
+      color: var(--ink);
+      box-shadow: var(--shadow);
+    }
+
+    dialog::backdrop {
+      overflow: hidden;
+      overscroll-behavior: contain;
+      background: rgba(15, 26, 24, 0.62);
+      backdrop-filter: blur(4px);
+    }
+
+    .dialog-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+
+    .dialog-head h1 {
+      font-size: 1.25rem;
+    }
+
+    .overview-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 12px;
+    }
+
+    .thumb {
+      text-align: left;
+      padding: 14px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--ink);
+      cursor: pointer;
+      font: inherit;
+    }
+
+    .thumb:hover,
+    .thumb.current {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px var(--accent-soft);
+    }
+
+    .thumb-num {
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      color: var(--accent);
+      font-weight: 700;
+    }
+
+    .thumb-title {
+      font-weight: 700;
+      font-size: 0.94rem;
+      margin-top: 4px;
+    }
+
+    .shortcut-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 10px 20px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .shortcut-list li {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.9rem;
+    }
+
+    kbd {
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      padding: 2px 7px;
+      border-radius: 6px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+    }
+
+    /* Print / Save as PDF: 1 landscape slide per page */
+    @media print {
+      @page { size: landscape; margin: 0.4in; }
+      .deck-shell { display: block; height: auto; overflow: visible; }
+      .stage { display: block; padding: 0; overflow: visible; }
+      .controls, .notes-panel { display: none !important; }
+      .slide {
+        display: flex !important;
+        flex-direction: column;
+        gap: 14px;
+        width: 100%;
+        box-shadow: none;
+        break-after: page;
+        page-break-after: always;
+        margin-bottom: 16px;
+      }
+      .slide:last-child { break-after: auto; page-break-after: auto; }
+    }
+  </style>
+</head>
+<body>
+  <div class="deck-shell">
+    <main class="stage" aria-live="polite">
+
+      <!-- Slide 1: Title -->
+      <section class="slide hero-slide active" data-title="Why Use OpenZiti?" data-notes="Welcome everyone. Today we'll look at what OpenZiti and Zero Trust actually do for a business — without burying you in security jargon. By the end, you'll see why hiding apps behind an identity-first overlay is simpler, safer, and faster than managing legacy VPNs and firewalls.">
+        <span class="eyebrow">Baked Pasta · Executive Briefing</span>
+        <h1>Why Use OpenZiti?</h1>
+        <p class="lead">
+          Modern, invisible networking that protects your apps and people — without the headaches of legacy VPNs, exposed server ports, or extra security sprawl.
+        </p>
+        <div class="hero-pills">
+          <div class="hero-pill">No open ports on your apps</div>
+          <div class="hero-pill">Identity before connection</div>
+          <div class="hero-pill">Built-in micro-segmentation</div>
+          <div class="hero-pill">Works from anywhere</div>
+          <div class="hero-pill">100% Open Source</div>
+        </div>
+        <p style="margin: 12px 0 0; font-size: 0.88rem; color: var(--muted);">
+          Use <kbd>→</kbd> / <kbd>←</kbd> or <kbd>Space</kbd> to navigate · <kbd>G</kbd> slide grid · <kbd>N</kbd> speaker notes · <kbd>F</kbd> fullscreen
+        </p>
+      </section>
+
+      <!-- Slide 2: Castle vs Zero Trust -->
+      <section class="slide" data-title="The Old Castle vs. Zero Trust" data-notes="Start with the castle analogy. Traditional networks put up a wall and leave front doors open (VPNs, public web ports) that bots hammer 24/7. Once someone is inside, a traditional VPN gives broad network access unless you bolt on and maintain separate micro-segmentation tools (VLANs, internal firewalls). OpenZiti removes open doors on your apps and builds least-privilege access in from the start.">
+        <span class="eyebrow">1 · The Problem</span>
+        <h2>The Old Castle-and-Moat Model Is Broken</h2>
+        <figure class="diagram-frame">
+          <img class="diagram-light" src="../assets/diagrams/why-castle-vs-zero-trust.svg" alt="Traditional Castle-and-Moat Network vs. OpenZiti Zero Trust">
+          <img class="diagram-dark" src="../assets/diagrams/why-castle-vs-zero-trust-on-dark.svg" alt="Traditional Castle-and-Moat Network vs. OpenZiti Zero Trust">
+        </figure>
+        <div class="takeaways">
+          <div class="takeaway">
+            <strong>Old way: trust where you sit</strong>
+            <span>Broad access inside the VPN by default — micro-segmentation can be added, but it's another complex layer of firewalls and rules to maintain.</span>
+          </div>
+          <div class="takeaway">
+            <strong>OpenZiti: trust verified identity</strong>
+            <span>No open doors on your apps. Least-privilege access per person, device, and app is built in.</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Slide 3: Dark Services -->
+      <section class="slide" data-title="Invisible (&quot;Dark&quot;) Services" data-notes="Address a smart question people often ask: 'Wait — doesn't something still need an open port?' Yes! The OpenZiti overlay in the middle has a small, hardened entry point guarded by strict cryptographic ID checks so devices and servers can dial out to it. What has ZERO open inbound ports are your actual apps, databases, and private servers. Think of a private club: the club has one guarded front door, so you never have to publish your own home address.">
+        <span class="eyebrow">2 · Invisible by Default</span>
+        <h2>You Can't Attack What You Can't Find</h2>
+        <figure class="diagram-frame">
+          <img class="diagram-light" src="../assets/diagrams/why-dark-services.svg" alt="How dark services stay invisible using outbound-only connections">
+          <img class="diagram-dark" src="../assets/diagrams/why-dark-services-on-dark.svg" alt="How dark services stay invisible using outbound-only connections">
+        </figure>
+        <div class="takeaways">
+          <div class="takeaway">
+            <strong>Zero open ports on your apps &amp; servers</strong>
+            <span>Your application firewalls block 100% of inbound traffic — nothing answers scanners.</span>
+          </div>
+          <div class="takeaway">
+            <strong>"Wait — isn't there still an open port somewhere?"</strong>
+            <span>Yes — only on the hardened OpenZiti rendezvous layer, which checks cryptographic IDs before connecting anything. Your apps stay completely dark.</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Slide 4: Least Privilege -->
+      <section class="slide" data-title="Stopping Lateral Movement" data-notes="Walk through Maya's laptop clicking a phishing link. Be fair to traditional VPNs: you CAN bolt micro-segmentation onto a VPN with extra VLANs, internal firewalls, or separate tools — but that's yet another complex layer to buy and maintain. With OpenZiti, micro-segmentation is built in from day one, so Payroll and Production simply don't exist to Maya's device.">
+        <span class="eyebrow">3 · Contained Blast Radius</span>
+        <h2>One Compromised Laptop ≠ Company-Wide Breach</h2>
+        <figure class="diagram-frame">
+          <img class="diagram-light" src="../assets/diagrams/why-least-privilege.svg" alt="Least-privilege micro-segmentation stopping lateral movement">
+          <img class="diagram-dark" src="../assets/diagrams/why-least-privilege-on-dark.svg" alt="Least-privilege micro-segmentation stopping lateral movement">
+        </figure>
+        <div class="takeaways">
+          <div class="takeaway">
+            <strong>Hotel keycard, not a master key</strong>
+            <span>Each employee or contractor only sees the exact apps their job requires.</span>
+          </div>
+          <div class="takeaway">
+            <strong>Micro-segmentation built in — not bolted on</strong>
+            <span>You can add segmentation to a VPN with extra firewalls and VLANs, but it's one more complex system to maintain. OpenZiti includes it by default.</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Slide 5: Works Anywhere -->
+      <section class="slide" data-title="Works Anywhere (No VPN Bottleneck)" data-notes="Highlight the everyday user experience! Security tools fail when employees hate them. OpenZiti runs silently in the background, routes straight to the cloud without a slow office detour, and doesn't drop when you move from Wi-Fi to 5G.">
+        <span class="eyebrow">4 · Effortless Experience</span>
+        <h2>Faster &amp; Simpler Than Any VPN</h2>
+        <figure class="diagram-frame">
+          <img class="diagram-light" src="../assets/diagrams/why-everywhere-no-vpn.svg" alt="Traditional VPN hairpin bottleneck vs. OpenZiti direct mesh">
+          <img class="diagram-dark" src="../assets/diagrams/why-everywhere-no-vpn-on-dark.svg" alt="Traditional VPN hairpin bottleneck vs. OpenZiti direct mesh">
+        </figure>
+        <div class="takeaways">
+          <div class="takeaway">
+            <strong>Zero "connect to VPN" popups</strong>
+            <span>Always-on in the background — people just open their apps normally.</span>
+          </div>
+          <div class="takeaway">
+            <strong>Multi-cloud &amp; mobile ready</strong>
+            <span>One unified private network across offices, AWS, Azure, OCI, and home labs.</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Slide 6: Adoption Paths -->
+      <section class="slide" data-title="Adopt at Your Own Pace" data-notes="Reassure stakeholders that this is not a risky rip-and-replace project. Step 1 takes minutes using drop-in tunnelers with zero code changes. Step 2 lets developers embed OpenZiti directly into critical apps over time.">
+        <span class="eyebrow">5 · Practical Rollout</span>
+        <h2>Start Today With Zero Code Changes</h2>
+        <figure class="diagram-frame">
+          <img class="diagram-light" src="../assets/diagrams/why-adoption-paths.svg" alt="Two adoption paths: drop-in tunnelers first, embedded SDK later">
+          <img class="diagram-dark" src="../assets/diagrams/why-adoption-paths-on-dark.svg" alt="Two adoption paths: drop-in tunnelers first, embedded SDK later">
+        </figure>
+      </section>
+
+      <!-- Slide 7: At a Glance Comparison -->
+      <section class="slide" data-title="VPN vs. OpenZiti at a Glance" data-notes="Summarize the differences in one scannable table for executives and decision-makers.">
+        <span class="eyebrow">6 · Side-by-Side</span>
+        <h2>Traditional VPN vs. OpenZiti</h2>
+        <table class="compare-table">
+          <thead>
+            <tr>
+              <th>Question</th>
+              <th>Traditional VPN / Firewall</th>
+              <th>OpenZiti</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>App servers exposed to scanners?</strong></td>
+              <td>Yes — open public ports scanned 24/7</td>
+              <td class="good">No — app servers are outbound-only ("dark"); only the hardened overlay listens</td>
+            </tr>
+            <tr>
+              <td><strong>If one laptop is compromised?</strong></td>
+              <td>Can roam unless separate micro-segmentation tools are added &amp; maintained</td>
+              <td class="good">Contained by default — micro-segmentation is built in</td>
+            </tr>
+            <tr>
+              <td><strong>Employee day-to-day UX?</strong></td>
+              <td>Manual VPN logins, lag, dropped calls</td>
+              <td class="good">Always-on, direct, seamless</td>
+            </tr>
+            <tr>
+              <td><strong>Multi-cloud &amp; hybrid offices?</strong></td>
+              <td>Complex site-to-site tunnels &amp; IP clashes</td>
+              <td class="good">One private mesh across every cloud</td>
+            </tr>
+            <tr>
+              <td><strong>Requires rewriting apps?</strong></td>
+              <td>No</td>
+              <td class="good">No — drop-in tunnelers now, SDKs later</td>
+            </tr>
+            <tr>
+              <td><strong>Vendor lock-in?</strong></td>
+              <td>Proprietary appliances &amp; per-seat fees</td>
+              <td class="good">100% Open Source (Apache 2.0)</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- Slide 8: Benefits by Role -->
+      <section class="slide" data-title="What It Means for Every Role" data-notes="Connect the technical benefits to what each audience in the room cares about most: risk & cost for leaders, convenience for staff, less toil for IT, and simpler networking for developers.">
+        <span class="eyebrow">7 · Value Across the Organization</span>
+        <h2>Why Every Team Wins</h2>
+        <div class="grid-2">
+          <div class="role-card">
+            <h3>Business Leaders</h3>
+            <p>Cuts ransomware and data-breach blast radius, makes compliance audits straightforward, and avoids vendor lock-in with Apache 2.0 open source.</p>
+          </div>
+          <div class="role-card">
+            <h3>Everyday Employees</h3>
+            <p>No more fighting VPN clients or waiting on IT tickets to work from home, a hotel, or a phone. Everything just works.</p>
+          </div>
+          <div class="role-card">
+            <h3>IT &amp; Operations</h3>
+            <p>Retires brittle firewall rule spreadsheets, public IP exposure, and complex multi-cloud VPN peering.</p>
+          </div>
+          <div class="role-card">
+            <h3>Software Developers</h3>
+            <p>Connect apps securely across any network without wrestling with IP addresses, NAT traversal, firewalls, or TLS plumbing.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Slide 9: Myths Debunked -->
+      <section class="slide" data-title="Common Myths Debunked" data-notes="Address the top three objections before they come up in Q&A: rewriting code, performance, and open-source longevity.">
+        <span class="eyebrow">8 · Quick Answers</span>
+        <h2>Common Questions &amp; Myths</h2>
+        <div class="myth-card">
+          <div class="myth-q">Myth: "We'd have to rewrite all our existing software."</div>
+          <div class="myth-a"><strong>Reality:</strong> Drop-in OpenZiti tunnelers protect existing web apps, databases, SSH, and RDP with zero code changes. Embedded SDKs are optional for new or high-value apps.</div>
+        </div>
+        <div class="myth-card">
+          <div class="myth-q">Myth: "Stronger security means a slower, clunkier experience."</div>
+          <div class="myth-a"><strong>Reality:</strong> OpenZiti is usually <em>faster</em> than a corporate VPN because traffic takes the smartest direct path instead of detouring through a central office gateway.</div>
+        </div>
+        <div class="myth-card">
+          <div class="myth-q">Myth: "We'll be locked into another expensive security vendor."</div>
+          <div class="myth-a"><strong>Reality:</strong> OpenZiti is 100% open source (Apache 2.0). Self-host it on any Linux server or free-tier cloud VM — or use managed options if you prefer.</div>
+        </div>
+      </section>
+
+      <!-- Slide 10: Try It Live -->
+      <section class="slide hero-slide" data-title="Try It Live in 5 Minutes" data-notes="Wrap up with a concrete call to action. Baked Pasta lets anyone spin up a local side-by-side demo comparing a standard exposed app with a dark, zero-port OpenZiti app in 5 minutes.">
+        <span class="eyebrow">9 · Next Step</span>
+        <h2>See It Live in 5 Minutes</h2>
+        <p class="lead">
+          <strong>Baked Pasta</strong> includes a self-contained local sandbox that runs a traditional web app side-by-side with an invisible, zero-port OpenZiti app — right on your laptop.
+        </p>
+        <div class="code-box">make sandbox-up</div>
+        <div class="takeaways">
+          <div class="takeaway">
+            <strong>Read the full written guide</strong>
+            <span>Open <code>docs/WHY-OPENZITI.md</code> for the shareable document.</span>
+          </div>
+          <div class="takeaway">
+            <strong>Export these slides as PDF</strong>
+            <span>Press <kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>P</kbd> and choose <em>Save as PDF</em> (landscape).</span>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <aside class="notes-panel" id="notes-panel" aria-label="Speaker notes">
+      <strong>Speaker notes:</strong> <span id="notes-text"></span>
+    </aside>
+
+    <footer class="controls" aria-label="Slide navigation">
+      <div class="progress-track" aria-hidden="true">
+        <div class="progress-fill" id="progress-fill"></div>
+      </div>
+
+      <div class="ctrl-group">
+        <button class="btn" id="btn-prev" type="button" aria-label="Previous slide">← Prev</button>
+        <span class="counter" id="counter">1 / 10</span>
+        <button class="btn" id="btn-next" type="button" aria-label="Next slide">Next →</button>
+      </div>
+
+      <div class="ctrl-group">
+        <button class="btn" id="btn-grid" type="button" title="Slide overview (G)">Grid</button>
+        <button class="btn" id="btn-notes" type="button" aria-pressed="false" title="Toggle speaker notes (N)">Notes</button>
+        <button class="btn" id="btn-theme" type="button" title="Toggle light/dark theme (T)">
+          <span class="icon-to-dark" aria-hidden="true">☾</span>
+          <span class="icon-to-light" aria-hidden="true">☀</span>
+          <span class="icon-to-dark">Dark</span>
+          <span class="icon-to-light">Light</span>
+          <span class="sr-only">Toggle color theme</span>
+        </button>
+        <button class="btn" id="btn-fs" type="button" title="Toggle fullscreen (F)">Fullscreen</button>
+        <button class="btn" id="btn-help" type="button" title="Keyboard shortcuts (?)">?</button>
+      </div>
+    </footer>
+  </div>
+
+  <!-- Slide Overview Modal -->
+  <dialog id="overview-dialog" closedby="any" aria-labelledby="overview-title">
+    <div class="dialog-head">
+      <h1 id="overview-title">Slide Overview</h1>
+      <form method="dialog"><button class="btn" autofocus>Close</button></form>
+    </div>
+    <div class="overview-grid" id="overview-grid"></div>
+  </dialog>
+
+  <!-- Keyboard Shortcuts Modal -->
+  <dialog id="help-dialog" closedby="any" aria-labelledby="help-title">
+    <div class="dialog-head">
+      <h1 id="help-title">Keyboard Shortcuts</h1>
+      <form method="dialog"><button class="btn" autofocus>Close</button></form>
+    </div>
+    <ul class="shortcut-list">
+      <li><span>Next slide</span><span><kbd>→</kbd> <kbd>Space</kbd> <kbd>PgDn</kbd></span></li>
+      <li><span>Previous slide</span><span><kbd>←</kbd> <kbd>PgUp</kbd></span></li>
+      <li><span>First / Last slide</span><span><kbd>Home</kbd> / <kbd>End</kbd></span></li>
+      <li><span>Slide overview grid</span><kbd>G</kbd></li>
+      <li><span>Speaker notes</span><kbd>N</kbd></li>
+      <li><span>Light / Dark theme</span><kbd>T</kbd></li>
+      <li><span>Fullscreen</span><kbd>F</kbd></li>
+      <li><span>Print / Save as PDF</span><span><kbd>⌘</kbd>/<kbd>Ctrl</kbd> + <kbd>P</kbd></span></li>
+    </ul>
+  </dialog>
+
+  <script>
+    (() => {
+      const STORAGE_KEY = "why-openziti-color-scheme";
+      const metaScheme = document.querySelector('meta[name="color-scheme"]');
+      const slides = Array.from(document.querySelectorAll(".slide"));
+      const counter = document.getElementById("counter");
+      const progressFill = document.getElementById("progress-fill");
+      const notesPanel = document.getElementById("notes-panel");
+      const notesText = document.getElementById("notes-text");
+      const btnPrev = document.getElementById("btn-prev");
+      const btnNext = document.getElementById("btn-next");
+      const btnGrid = document.getElementById("btn-grid");
+      const btnNotes = document.getElementById("btn-notes");
+      const btnTheme = document.getElementById("btn-theme");
+      const btnFs = document.getElementById("btn-fs");
+      const btnHelp = document.getElementById("btn-help");
+      const overviewDialog = document.getElementById("overview-dialog");
+      const overviewGrid = document.getElementById("overview-grid");
+      const helpDialog = document.getElementById("help-dialog");
+
+      let index = 0;
+
+      function parseHash() {
+        const m = location.hash.match(/^#slide-(\d+)$/);
+        if (!m) return 0;
+        const n = parseInt(m[1], 10) - 1;
+        return Math.max(0, Math.min(slides.length - 1, n));
+      }
+
+      function renderOverview() {
+        overviewGrid.innerHTML = "";
+        slides.forEach((slide, i) => {
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "thumb" + (i === index ? " current" : "");
+          const num = document.createElement("div");
+          num.className = "thumb-num";
+          num.textContent = `Slide ${i + 1}`;
+          const title = document.createElement("div");
+          title.className = "thumb-title";
+          title.textContent = slide.dataset.title || `Slide ${i + 1}`;
+          btn.append(num, title);
+          btn.addEventListener("click", () => {
+            show(i);
+            overviewDialog.close();
+          });
+          overviewGrid.append(btn);
+        });
+      }
+
+      function show(i, updateHash = true) {
+        index = Math.max(0, Math.min(slides.length - 1, i));
+        slides.forEach((s, idx) => s.classList.toggle("active", idx === index));
+        counter.textContent = `${index + 1} / ${slides.length}`;
+        progressFill.style.width = `${((index + 1) / slides.length) * 100}%`;
+        btnPrev.disabled = index === 0;
+        btnNext.disabled = index === slides.length - 1;
+        notesText.textContent = slides[index].dataset.notes || "";
+        if (updateHash) {
+          history.replaceState(null, "", `#slide-${index + 1}`);
+        }
+      }
+
+      function toggleNotes() {
+        const open = notesPanel.classList.toggle("open");
+        btnNotes.setAttribute("aria-pressed", String(open));
+      }
+
+      function toggleFullscreen() {
+        if (!document.fullscreenElement) {
+          document.documentElement.requestFullscreen?.().catch(() => {});
+        } else {
+          document.exitFullscreen?.().catch(() => {});
+        }
+      }
+
+      /* Two-state color-scheme toggle: removes stored value when matching OS preference */
+      function toggleTheme() {
+        const osDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+        const currentMeta = metaScheme.content;
+        const renderedDark = currentMeta === "dark" || (currentMeta === "light dark" && osDark);
+        const target = renderedDark ? "light" : "dark";
+        const matchesOs = (target === "dark") === osDark;
+        try {
+          if (matchesOs) {
+            localStorage.removeItem(STORAGE_KEY);
+          } else {
+            localStorage.setItem(STORAGE_KEY, target);
+          }
+        } catch (_) {}
+        metaScheme.content = matchesOs ? "light dark" : target;
+      }
+
+      window.addEventListener("storage", (e) => {
+        if (e.key === STORAGE_KEY) {
+          metaScheme.content = (e.newValue === "light" || e.newValue === "dark") ? e.newValue : "light dark";
+        }
+      });
+
+      /* Safari fallback for <dialog closedby="any"> */
+      if (!("closedBy" in HTMLDialogElement.prototype)) {
+        const outside = (e, d) => {
+          const r = d.getBoundingClientRect();
+          return e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom;
+        };
+        for (const dialog of document.querySelectorAll('dialog[closedby="any"]')) {
+          let pressedOutside = false;
+          dialog.addEventListener("pointerdown", (e) => { pressedOutside = outside(e, dialog); });
+          dialog.addEventListener("pointerup", (e) => {
+            if (pressedOutside && outside(e, dialog)) dialog.close();
+          });
+        }
+      }
+
+      btnPrev.addEventListener("click", () => show(index - 1));
+      btnNext.addEventListener("click", () => show(index + 1));
+      btnGrid.addEventListener("click", () => { renderOverview(); overviewDialog.showModal(); });
+      btnNotes.addEventListener("click", toggleNotes);
+      btnTheme.addEventListener("click", toggleTheme);
+      btnFs.addEventListener("click", toggleFullscreen);
+      btnHelp.addEventListener("click", () => helpDialog.showModal());
+
+      document.addEventListener("keydown", (e) => {
+        if (overviewDialog.open || helpDialog.open) return;
+        if (e.metaKey || e.ctrlKey || e.altKey) return;
+        switch (e.key) {
+          case "ArrowRight":
+          case "PageDown":
+          case " ":
+            e.preventDefault();
+            show(index + 1);
+            break;
+          case "ArrowLeft":
+          case "PageUp":
+            e.preventDefault();
+            show(index - 1);
+            break;
+          case "Home":
+            e.preventDefault();
+            show(0);
+            break;
+          case "End":
+            e.preventDefault();
+            show(slides.length - 1);
+            break;
+          case "g":
+          case "G":
+            e.preventDefault();
+            renderOverview();
+            overviewDialog.showModal();
+            break;
+          case "n":
+          case "N":
+            e.preventDefault();
+            toggleNotes();
+            break;
+          case "t":
+          case "T":
+            e.preventDefault();
+            toggleTheme();
+            break;
+          case "f":
+          case "F":
+            e.preventDefault();
+            toggleFullscreen();
+            break;
+          case "?":
+            e.preventDefault();
+            helpDialog.showModal();
+            break;
+        }
+      });
+
+      /* Basic touch swipe navigation */
+      let touchStartX = null;
+      document.addEventListener("touchstart", (e) => {
+        touchStartX = e.changedTouches[0]?.clientX ?? null;
+      }, { passive: true });
+      document.addEventListener("touchend", (e) => {
+        if (touchStartX === null || overviewDialog.open || helpDialog.open) return;
+        const dx = (e.changedTouches[0]?.clientX ?? touchStartX) - touchStartX;
+        touchStartX = null;
+        if (Math.abs(dx) > 50) show(index + (dx < 0 ? 1 : -1));
+      }, { passive: true });
+
+      window.addEventListener("hashchange", () => show(parseHash(), false));
+      show(parseHash(), false);
+    })();
+  </script>
+</body>
+</html>

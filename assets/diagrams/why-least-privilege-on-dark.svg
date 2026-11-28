@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="500" viewBox="0 0 1040 500" role="img" aria-labelledby="t d" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif">
+<title id="t">Stopping Lateral Movement with Least-Privilege Access</title>
+<desc id="d">Each person only sees and reaches the exact apps they need. If Maya&#x27;s laptop is compromised, Payroll and Production Servers remain completely hidden and unreachable.</desc>
+<defs>
+<marker id="arr-http" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0.8 L9.5 5 L0 9.2 z" fill="#9FC2B8"/></marker>
+<marker id="arr-overlay" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0.8 L9.5 5 L0 9.2 z" fill="#FF7A4D"/></marker>
+<marker id="arr-good" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0.8 L9.5 5 L0 9.2 z" fill="#5FD3A8"/></marker>
+<marker id="arr-bad" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0.8 L9.5 5 L0 9.2 z" fill="#FF7E75"/></marker>
+<marker id="arr-muted" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0.8 L9.5 5 L0 9.2 z" fill="#A8B8B2"/></marker>
+</defs>
+<rect width="1040" height="500" rx="16" fill="#0F1A18"/>
+<text x="36" y="44" font-size="20" font-weight="750" fill="#F6ECDC" text-anchor="start">Stopping Lateral Movement (Zero Blast Radius)</text>
+<text x="36" y="67" font-size="13" font-weight="400" fill="#A8B8B2" text-anchor="start">Even if one laptop is stolen or infected, the rest of the company stays invisible.</text>
+<rect x="28" y="94" width="276" height="372" rx="14" fill="#15241F" stroke="#2A3F39" stroke-width="1.5"/>
+<text x="46" y="120" font-size="11.5" font-weight="700" fill="#A8B8B2" text-anchor="start" letter-spacing="0.08em">PEOPLE &amp; DEVICES</text>
+<rect x="48" y="134" width="236" height="90" rx="10" fill="#332914" stroke="#876A28" stroke-width="1.5"/>
+<text x="64" y="160" font-size="14.5" font-weight="700" fill="#F6ECDC" text-anchor="start">Maya · Sales</text>
+<text x="64" y="180" font-size="12" font-weight="400" fill="#A8B8B2" text-anchor="start">Role: #sales</text>
+<text x="64" y="197" font-size="12" font-weight="400" fill="#A8B8B2" text-anchor="start">⚠ Laptop clicks phishing link</text>
+<rect x="48" y="244" width="236" height="90" rx="10" fill="#1E322C" stroke="#3D5A53" stroke-width="1.5"/>
+<text x="64" y="270" font-size="14.5" font-weight="700" fill="#F6ECDC" text-anchor="start">Sam · Finance</text>
+<text x="64" y="290" font-size="12" font-weight="400" fill="#A8B8B2" text-anchor="start">Role: #finance</text>
+<text x="64" y="307" font-size="12" font-weight="400" fill="#A8B8B2" text-anchor="start">Trusted corporate laptop</text>
+<rect x="48" y="354" width="236" height="90" rx="10" fill="#1E322C" stroke="#3D5A53" stroke-width="1.5"/>
+<text x="64" y="380" font-size="14.5" font-weight="700" fill="#F6ECDC" text-anchor="start">Alex · Engineering</text>
+<text x="64" y="400" font-size="12" font-weight="400" fill="#A8B8B2" text-anchor="start">Role: #engineers</text>
+<text x="64" y="417" font-size="12" font-weight="400" fill="#A8B8B2" text-anchor="start">Trusted workstation</text>
+<rect x="384" y="94" width="260" height="372" rx="14" fill="#2A211B" stroke="#9A4A2C" stroke-width="1.5"/>
+<text x="402" y="120" font-size="11.5" font-weight="700" fill="#FF7A4D" text-anchor="start" letter-spacing="0.08em">OPENZITI POLICY RULES</text>
+<rect x="406" y="146" width="216" height="66" rx="10" fill="#1E322C" stroke="#3D5A53" stroke-width="1.5"/>
+<text x="514.0" y="172" font-size="14.5" font-weight="700" fill="#F6ECDC" text-anchor="middle">Rule 1: Sales → CRM</text>
+<text x="514.0" y="192" font-size="12" font-weight="400" fill="#A8B8B2" text-anchor="middle">Only #sales can dial CRM</text>
+<rect x="406" y="256" width="216" height="66" rx="10" fill="#1E322C" stroke="#3D5A53" stroke-width="1.5"/>
+<text x="514.0" y="282" font-size="14.5" font-weight="700" fill="#F6ECDC" text-anchor="middle">Rule 2: Finance → Payroll</text>
+<text x="514.0" y="302" font-size="12" font-weight="400" fill="#A8B8B2" text-anchor="middle">Only #finance can dial Payroll</text>
+<rect x="406" y="366" width="216" height="66" rx="10" fill="#1E322C" stroke="#3D5A53" stroke-width="1.5"/>
+<text x="514.0" y="392" font-size="14.5" font-weight="700" fill="#F6ECDC" text-anchor="middle">Rule 3: Eng → Prod</text>
+<text x="514.0" y="412" font-size="12" font-weight="400" fill="#A8B8B2" text-anchor="middle">Only #engineers can dial Prod</text>
+<rect x="724" y="94" width="288" height="372" rx="14" fill="#15241F" stroke="#2A3F39" stroke-width="1.5"/>
+<text x="742" y="120" font-size="11.5" font-weight="700" fill="#A8B8B2" text-anchor="start" letter-spacing="0.08em">PRIVATE SERVICES</text>
+<rect x="744" y="134" width="248" height="90" rx="10" fill="#332914" stroke="#876A28" stroke-width="1.5"/>
+<text x="760" y="160" font-size="14.5" font-weight="700" fill="#F6ECDC" text-anchor="start">CRM Application</text>
+<text x="760" y="180" font-size="12" font-weight="400" fill="#A8B8B2" text-anchor="start">Reachable by Maya only</text>
+<text x="760" y="197" font-size="12" font-weight="400" fill="#A8B8B2" text-anchor="start">Contained to 1 app</text>
+<rect x="744" y="244" width="248" height="90" rx="10" fill="#143026" stroke="#2E755C" stroke-width="1.5"/>
+<text x="760" y="270" font-size="14.5" font-weight="700" fill="#5FD3A8" text-anchor="start">Payroll Database</text>
+<text x="760" y="290" font-size="12" font-weight="400" fill="#A8B8B2" text-anchor="start">Completely invisible to Maya</text>
+<text x="760" y="307" font-size="12" font-weight="400" fill="#A8B8B2" text-anchor="start">Protected from breach</text>
+<rect x="744" y="354" width="248" height="90" rx="10" fill="#143026" stroke="#2E755C" stroke-width="1.5"/>
+<text x="760" y="380" font-size="14.5" font-weight="700" fill="#5FD3A8" text-anchor="start">Production Servers</text>
+<text x="760" y="400" font-size="12" font-weight="400" fill="#A8B8B2" text-anchor="start">Completely invisible to Maya</text>
+<text x="760" y="417" font-size="12" font-weight="400" fill="#A8B8B2" text-anchor="start">Protected from breach</text>
+<path d="M284 179 L406 179" fill="none" stroke="#FF7A4D" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#arr-overlay)"/>
+<path d="M622 179 L744 179" fill="none" stroke="#FF7A4D" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#arr-overlay)"/>
+<path d="M284 289 L406 289" fill="none" stroke="#5FD3A8" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#arr-good)"/>
+<path d="M622 289 L744 289" fill="none" stroke="#5FD3A8" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#arr-good)"/>
+<path d="M284 399 L406 399" fill="none" stroke="#5FD3A8" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#arr-good)"/>
+<path d="M622 399 L744 399" fill="none" stroke="#5FD3A8" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#arr-good)"/>
+<path d="M284 204 L346 246" fill="none" stroke="#FF7E75" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" stroke-dasharray="6 4" marker-end="url(#arr-bad)"/>
+<circle cx="354" cy="252" r="10" fill="#331A19" stroke="#FF7E75" stroke-width="1.8"/>
+<path d="M349.5 247.5 L358.5 256.5 M358.5 247.5 L349.5 256.5" stroke="#FF7E75" stroke-width="2" stroke-linecap="round"/>
+<text x="354" y="224" font-size="11" font-weight="700" fill="#FF7E75" text-anchor="middle">Blocked</text>
+<circle cx="976" cy="260" r="10" fill="#143026" stroke="#5FD3A8" stroke-width="1.8"/>
+<path d="M971.5 260.5 L974.8 263.8 L981 256.5" fill="none" stroke="#5FD3A8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="976" cy="370" r="10" fill="#143026" stroke="#5FD3A8" stroke-width="1.8"/>
+<path d="M971.5 370.5 L974.8 373.8 L981 366.5" fill="none" stroke="#5FD3A8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
