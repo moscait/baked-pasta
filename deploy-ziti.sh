@@ -90,10 +90,11 @@ Options:
       --update-console        Refresh only the Admin Console files and nginx config on an existing
                               deployment, then restart the console container. No tunnel token
                               needed; the controller, PKI and identities are untouched.
-      --console <zac|bpc>     Admin console to deploy: zac (OpenZiti Admin Console, default) or bpc
-                              (Baked Pasta Console). Also BAKED_PASTA_CONSOLE. bpc installs the pinned
-                              release; set BPC_DIR (a checkout) or BPC_ZIP (an archive) to use
-                              an unreleased build instead.
+      --console <zac|bpc|bpc-vaadin>
+                              Admin console to deploy: zac (OpenZiti Admin Console, default), bpc
+                              (Baked Pasta Console Web), or bpc-vaadin (Baked Pasta Console Vaadin
+                              server-side container). Also BAKED_PASTA_CONSOLE. For bpc, set BPC_DIR
+                              (a checkout) or BPC_ZIP (an archive) to use an unreleased build instead.
       --check-token           Check that CLOUDFLARE_TUNNEL_TOKEN is a well-formed tunnel token,
                               print the tunnel ID it belongs to, and exit without deploying.
   -h, --help                  Show this help message.
@@ -199,8 +200,8 @@ while [[ $# -gt 0 ]]; do
 done
 
 case "$CONSOLE" in
-    zac|bpc) ;;
-    *) echo -e "${RED}Error: --console must be zac or bpc (got '$CONSOLE').${NC}"; exit 1 ;;
+    zac|bpc|bpc-vaadin) ;;
+    *) echo -e "${RED}Error: --console must be zac, bpc, or bpc-vaadin (got '$CONSOLE').${NC}"; exit 1 ;;
 esac
 
 # Sanitize and extract raw Cloudflare token if present
@@ -282,6 +283,9 @@ check_tunnel_token() {
 # built with scripts/build-console.sh. On a remote host the console arrives in the SSH bundle
 # (without the fetch script), so it is used as is.
 ensure_console() {
+    if [ "$CONSOLE" = "bpc-vaadin" ]; then
+        return 0
+    fi
     if [ ! -x "$ROOT_DIR/scripts/fetch-console.sh" ]; then
         [ -f "$ROOT_DIR/infrastructure/console/index.html" ] && return 0
         die "infrastructure/console/ is missing. Run scripts/fetch-console.sh infrastructure (or make console-fetch)."
@@ -358,9 +362,9 @@ if [ -n "$SSH_STREAM_HOST" ]; then
     echo -e "${CYAN}   (Zero git clone or repository access required on remote host)${NC}"
     echo -e "${CYAN}======================================================================${NC}\n"
 
-    REMOTE_FLAGS=""
+    REMOTE_FLAGS="--console $CONSOLE"
     if [ "$QUICK_MODE" = true ]; then
-        REMOTE_FLAGS="--quick"
+        REMOTE_FLAGS="$REMOTE_FLAGS --quick"
     fi
     if [ -n "$TEARDOWN_ARGS" ]; then
         REMOTE_FLAGS="$REMOTE_FLAGS $TEARDOWN_ARGS"
@@ -384,7 +388,7 @@ if [ -n "$SSH_STREAM_HOST" ]; then
     # Files the remote installer reads: this script plus the Ansible playbooks, the compose
     # template, the nginx config and the console. The console is needed only to deploy or refresh it.
     BUNDLE_PATHS=(deploy-ziti.sh infrastructure/ansible infrastructure/templates infrastructure/nginx)
-    if [ "$TEARDOWN" = false ]; then
+    if [ "$TEARDOWN" = false ] && [ "$CONSOLE" != "bpc-vaadin" ]; then
         ensure_console
         BUNDLE_PATHS+=(infrastructure/console)
     fi
@@ -577,13 +581,18 @@ if [ "$TEARDOWN" = false ]; then
 fi
 
 if [ "$UPDATE_CONSOLE" = true ]; then
-    echo -e "\n${BLUE}▶ Running Ansible Console Update Playbook...${NC}\n"
+    echo -e "\n${BLUE}▶ Running Ansible Console Update Playbook (console: $CONSOLE)...${NC}\n"
+    BAKED_PASTA_CONSOLE="$CONSOLE" \
     ANSIBLE_CONFIG="$ROOT_DIR/infrastructure/ansible/ansible.cfg" ansible-playbook \
         -i "$INVENTORY" \
         $EXTRA_CONN \
         $EXTRA_BECOME_FLAG \
         "$ROOT_DIR/infrastructure/ansible/update-console.yml"
-    echo -e "\n${GREEN}✔ Admin Console refreshed.${NC} $( { sed -n 's/^name=//p' "$ROOT_DIR/infrastructure/console/.console-source" 2>/dev/null; [ -f "$ROOT_DIR/infrastructure/console/BUILD-INFO.txt" ] && head -n 3 "$ROOT_DIR/infrastructure/console/BUILD-INFO.txt"; } | tr '\n' ' ' )"
+    if [ "$CONSOLE" = "bpc-vaadin" ]; then
+        echo -e "\n${GREEN}✔ Admin Console refreshed.${NC} Baked Pasta Console (Vaadin)"
+    else
+        echo -e "\n${GREEN}✔ Admin Console refreshed.${NC} $( { sed -n 's/^name=//p' "$ROOT_DIR/infrastructure/console/.console-source" 2>/dev/null; [ -f "$ROOT_DIR/infrastructure/console/BUILD-INFO.txt" ] && head -n 3 "$ROOT_DIR/infrastructure/console/BUILD-INFO.txt"; } | tr '\n' ' ' )"
+    fi
     exit 0
 fi
 
@@ -625,6 +634,7 @@ ALLOW_QUICK_TUNNEL=false
 if [ "$QUICK_MODE" = true ]; then
     ALLOW_QUICK_TUNNEL=true
 fi
+BAKED_PASTA_CONSOLE="$CONSOLE" \
 CLOUDFLARE_TUNNEL_TOKEN="$TOKEN" \
 CLOUDFLARE_DNS_API_TOKEN="$DNS_TOKEN" \
 OPENZITI_ADMIN_USER="$ADMIN_USER" \
@@ -640,10 +650,14 @@ ANSIBLE_CONFIG="$ROOT_DIR/infrastructure/ansible/ansible.cfg" ansible-playbook \
 echo -e "\n${GREEN}======================================================${NC}"
 echo -e "${GREEN}✔ OPENZITI INFRASTRUCTURE DEPLOYED SUCCESSFULLY!${NC}"
 echo -e "${GREEN}======================================================${NC}"
-echo -e "OpenZiti Admin Console (ZAC): ${CYAN}http://127.0.0.1:8080/ (loopback + Cloudflare Tunnel)${NC}"
+echo -e "Admin Console (${CONSOLE}):       ${CYAN}http://127.0.0.1:8080/ (loopback + Cloudflare Tunnel)${NC}"
 echo -e "OpenZiti Client & Ctrl Plane: ${CYAN}https://${ADVERTISE_ADDRESS}:1280/ (public mTLS)${NC}"
 echo -e "OpenZiti Edge Router:         ${CYAN}tls://${ADVERTISE_ADDRESS}:8444 (public mTLS)${NC}"
-echo -e "OpenZiti Management API:      ${GREEN}internal-only (1281, reachable solely via ZAC)${NC}"
+if [ "$CONSOLE" = "bpc-vaadin" ]; then
+    echo -e "OpenZiti Management API:      ${GREEN}internal-only (1281, dark behind Vaadin backend)${NC}"
+else
+    echo -e "OpenZiti Management API:      ${GREEN}internal-only (1281, reachable solely via console proxy)${NC}"
+fi
 if [ -n "$DNS_TOKEN" ] && [ "$ADVERTISE_ADDRESS" != "ziti-controller.local" ]; then
     echo -e "Cloudflare DDNS Updater:      ${GREEN}ACTIVE (openziti-ddns keeps ${ADVERTISE_ADDRESS} synced)${NC}"
 fi
