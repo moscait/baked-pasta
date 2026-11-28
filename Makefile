@@ -79,26 +79,42 @@ $(foreach app,$(APPS),$(eval $(call APP_RULES,$(app))))
 	@umask 077 && printf 'OPENZITI_ADMIN_PASSWORD=%s\n' "$$(openssl rand -base64 48 | tr -dc 'A-Za-z0-9' | head -c 24)" > .env
 	@echo "    Admin password stored in .env (user: admin)."
 
-# Admin console for both configurations: zac (OpenZiti Admin Console, default) or bpc (Baked
-# Pasta Console). Both install a pinned, sha256-verified release. For an unreleased BPC, also pass
-# BPC_DIR=<checkout> to build it or BPC_ZIP=<archive> to install one.
-# Example: make sandbox-up CONSOLE=bpc
+# Admin console for both configurations:
+#   zac        OpenZiti Admin Console (default, static SPA)
+#   bpc        Baked Pasta Console Web edition (static SPA)
+#   bpc-vaadin Baked Pasta Console Vaadin edition (server-side JVM container)
+# For an unreleased BPC, pass BPC_DIR=<checkout> (builds web/ or vaadin/ Docker image locally)
+# or BPC_ZIP=<archive> (web edition only).
+# Example: make sandbox-up CONSOLE=bpc-vaadin
 CONSOLE ?= $(or $(BAKED_PASTA_CONSOLE),zac)
 CONSOLE_ENV = BAKED_PASTA_CONSOLE='$(CONSOLE)' $(if $(BPC_DIR),BPC_DIR='$(BPC_DIR)',) $(if $(BPC_ZIP),BPC_ZIP='$(BPC_ZIP)',)
 
-# Install the selected console into menu/zac/ (stock upstream ZAC by default, sha256-verified).
+# Install the selected console (or build the local Vaadin image when BPC_DIR is set).
 # Kept as is when that console is already installed; FORCE=1 replaces it.
 .PHONY: sandbox-console
 sandbox-console:
+ifeq ($(CONSOLE),bpc-vaadin)
+	@if [ -n "$(BPC_DIR)" ]; then \
+		echo "==> Building Baked Pasta Console (Vaadin) image from $(BPC_DIR)/vaadin..."; \
+		DOCKER_BUILDKIT=1 docker build -t baked-pasta-console-vaadin:local "$(BPC_DIR)/vaadin"; \
+	else \
+		echo "==> Using Baked Pasta Console (Vaadin) container image."; \
+	fi
+else
 	@$(CONSOLE_ENV) ./scripts/fetch-console.sh sandbox $(if $(FORCE),--force,)
+endif
 
 sandbox-up: .env sandbox-console
-	@echo "==> Starting local developer sandbox (ports bound to 127.0.0.1)..."
-	@docker compose up -d
+	@echo "==> Starting local developer sandbox (ports bound to 127.0.0.1, console: $(CONSOLE))..."
+ifeq ($(CONSOLE),bpc-vaadin)
+	@BAKED_PASTA_CONSOLE=bpc-vaadin $(if $(BPC_DIR),BPC_VAADIN_IMAGE=baked-pasta-console-vaadin:local,) docker compose --profile vaadin up -d
+else
+	@BAKED_PASTA_CONSOLE='$(CONSOLE)' docker compose up -d
+endif
 
 sandbox-down:
 	@echo "==> Stopping local developer sandbox..."
-	@docker compose down
+	@docker compose --profile vaadin down
 
 sandbox-logs:
 	@docker compose logs -f
@@ -161,12 +177,16 @@ ziti-teardown:
 	@./deploy-ziti.sh --ssh $(TARGET) --teardown $(if $(KEEP_DATA),--keep-data,) $(if $(YES),--yes,)
 
 ziti-up:
-	@echo "==> Starting OpenZiti Infrastructure stack..."
+	@echo "==> Starting OpenZiti Infrastructure stack (console: $(CONSOLE))..."
+ifeq ($(CONSOLE),bpc-vaadin)
+	@CONSOLE_NGINX_CONF=default.vaadin.conf docker compose -f infrastructure/docker-compose.cloudflare.yaml --profile vaadin up -d
+else
 	@docker compose -f infrastructure/docker-compose.cloudflare.yaml up -d
+endif
 
 ziti-down:
 	@echo "==> Stopping OpenZiti Infrastructure stack..."
-	@docker compose -f infrastructure/docker-compose.cloudflare.yaml down
+	@docker compose -f infrastructure/docker-compose.cloudflare.yaml --profile vaadin down
 
 ziti-logs:
 	@docker compose -f infrastructure/docker-compose.cloudflare.yaml logs -f

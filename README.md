@@ -185,25 +185,28 @@ For comprehensive infrastructure instructions, Ansible details, and OpenTofu IaC
 
 ## 🎛 Choosing the Admin Console: ZAC or BPC
 
-Both configurations can serve either of two admin consoles, at the same URLs:
+Both configurations can serve any of three admin consoles, at the same URLs:
 
-| | **ZAC** (default) | **BPC** |
-| :--- | :--- | :--- |
-| **What** | [OpenZiti Admin Console](https://github.com/openziti/ziti-console) | Baked Pasta Console: a ZAC-compatible console built around the Access Canvas, guided service wizards and staged changes you review before applying |
-| **Build** | Sandbox: stock 4.8.0. Routable infrastructure: 4.8.1 with the Access Canvas view (see `NOTICE`) | [Release 0.2.3](https://github.com/moscait/baked-pasta-console/releases/tag/v0.2.3), served in both configurations |
-| **Source** | Pinned release, downloaded and SHA-256-verified | Pinned release, downloaded and SHA-256-verified |
+| | **ZAC** (default) | **BPC** | **BPC Vaadin** |
+| :--- | :--- | :--- | :--- |
+| **What** | [OpenZiti Admin Console](https://github.com/openziti/ziti-console) | Baked Pasta Console: a ZAC-compatible console built around the Access Canvas, guided service wizards and staged changes you review before applying | The server-side edition of BPC ([how it differs](https://github.com/moscait/baked-pasta-console/blob/main/EDITIONS.md)): the console's server makes every controller call, so no controller token reaches the browser and the management API is never proxied to it |
+| **Build** | Sandbox: stock 4.8.0. Routable infrastructure: 4.8.1 with the Access Canvas view (see `NOTICE`) | [Release 0.2.3](https://github.com/moscait/baked-pasta-console/releases/tag/v0.2.3), served in both configurations | Container image `ghcr.io/moscait/baked-pasta-console-vaadin` 0.2.3 (`vaadin-v0.2.3`), multi-arch |
+| **Source** | Pinned release, downloaded and SHA-256-verified | Pinned release, downloaded and SHA-256-verified | Pinned by image digest |
 
-Select BPC with `CONSOLE=bpc` (make) or `--console bpc` (scripts):
+Select BPC with `CONSOLE=bpc` (make) or `--console bpc` (scripts), or the Vaadin edition with `bpc-vaadin`:
 
 ```bash
 make sandbox-up CONSOLE=bpc
 make ziti-ssh TARGET=user@192.0.2.10 ADVERTISE=ziti.example.com CONSOLE=bpc
 ./deploy-ziti.sh --ssh user@192.0.2.10 -a ziti.example.com --console bpc
+./deploy-ziti.sh --ssh user@192.0.2.10 -a ziti.example.com --console bpc-vaadin
 ```
 
-To move to a newer BPC release, run `make bpc-pin` (or `make bpc-pin VERSION=v0.1.2`). It checks the release against GitHub's checksum and updates the pin. Commit that, then deploy as usual; the changed pin replaces the installed console.
+With **BPC Vaadin**, the console runs as its own container next to the controller and is configured with the controller it may use (`ZITI_CONTROLLERS`); it contacts no other host. In the sandbox it is at [https://zt.local:8443/zac/](https://zt.local:8443/zac/) only: its session cookie is `Secure`, so `http://menu.local:8080/zac/` redirects there. In Configuration 2 it is served at the root of your Cloudflare hostname, and the controller's management API is no longer proxied to browsers at all. To try an unreleased build, add `BPC_DIR=../baked-pasta-console`, which builds the image from that checkout's `vaadin/` folder.
 
-To try unreleased BPC work, add `BPC_DIR=../baked-pasta-console` (builds that checkout with `npm`) or `BPC_ZIP=<archive>` (an archive made with `npm run package:zac`).
+To move to a newer BPC release, run `make bpc-pin` (or `make bpc-pin VERSION=web-v0.2.4`). It checks the release against GitHub's checksum and updates the pin. Commit that, then deploy as usual; the changed pin replaces the installed console.
+
+To try unreleased BPC work, add `BPC_DIR=../baked-pasta-console` (builds that checkout's `web/` with `npm`) or `BPC_ZIP=<archive>` (an archive made with `npm run package:zac`).
 
 Setting `BAKED_PASTA_CONSOLE=bpc` in your environment makes BPC the default. Switching consoles replaces the installed one, and so does a newer pinned release. Otherwise, running again with the same console keeps it (add `FORCE=1` or `--force` to reinstall, or pass `BPC_DIR`/`BPC_ZIP` to rebuild). To swap the console on a running deployment without touching the controller, use `make console-update TARGET=user@host CONSOLE=bpc ...`.
 
@@ -225,7 +228,7 @@ Setting `BAKED_PASTA_CONSOLE=bpc` in your environment makes BPC the default. Swi
 │   ├── console/                  # Admin Console build, fetched on deploy (git-ignored)
 │   ├── deploy.sh                 # Infrastructure deploy script wrapper
 │   ├── docker-compose.cloudflare.yaml # Infrastructure compose configuration
-│   ├── nginx/                    # Nginx reverse proxy configuration for root ZAC
+│   ├── nginx/                    # Nginx reverse proxy for the console at / (static or Vaadin)
 │   ├── opentofu/                 # OpenTofu/Terraform IaC for Cloudflare DNS, Tunnels & SSO
 │   ├── oracle-cloud/             # OpenTofu/Terraform for an Oracle Cloud (Always Free) host
 │   └── templates/                # Jinja2 compose template (secrets come from .env at runtime)

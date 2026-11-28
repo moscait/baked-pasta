@@ -214,6 +214,31 @@ services:
     depends_on:
       - ziti-controller
 
+{% if console_type | default('zac') == 'bpc-vaadin' %}
+  console-vaadin:
+    image: {{ bpc_vaadin_image }}
+    container_name: openziti-console-vaadin
+    user: "1001:1001"
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 512m
+    restart: unless-stopped
+    environment:
+      # Required by BPC Vaadin >= 0.2.3: the only controller(s) the console may contact.
+      - ZITI_CONTROLLERS=https://ziti-controller.local:{{ ziti_mgmt_port }}
+      # The controller's quickstart PKI is self-signed, and its certificate lists ziti-controller.local
+      # only when that is also the advertise address, so hostname checks would fail. The traffic stays
+      # on the private container network.
+      - ZITI_TRUST_ALL=true
+    networks:
+      openziti-network:
+        aliases:
+          - console-vaadin.local
+          - console-vaadin
+    depends_on:
+      - ziti-controller
+
+{% endif %}
   console:
     image: {{ nginx_image }}
     container_name: openziti-console
@@ -228,7 +253,9 @@ services:
       - NGINX_ENTRYPOINT_LOCAL_RESOLVERS=1
       - NGINX_ENVSUBST_FILTER=NGINX_LOCAL_RESOLVERS
     volumes:
+{% if console_type | default('zac') != 'bpc-vaadin' %}
       - ./console:/usr/share/nginx/html:ro,z
+{% endif %}
       - ./nginx/default.conf:/etc/nginx/templates/default.conf.template:ro,z
     networks:
       openziti-network:
@@ -237,6 +264,9 @@ services:
           - console
     depends_on:
       - ziti-controller
+{% if console_type | default('zac') == 'bpc-vaadin' %}
+      - console-vaadin
+{% endif %}
 
   cloudflared:
     image: {{ cloudflared_image }}

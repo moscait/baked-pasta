@@ -213,6 +213,30 @@ services:
     depends_on:
       - ziti-controller
 
+  console-vaadin:
+    profiles: ["vaadin"]
+    image: ${BPC_VAADIN_IMAGE:-ghcr.io/moscait/baked-pasta-console-vaadin:0.2.3@sha256:2d902c20804a8a3ee882644693a640f44e0889cd84533c87cd4cc09a7f7305ff}
+    container_name: openziti-console-vaadin
+    user: "1001:1001"
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 512m
+    restart: unless-stopped
+    environment:
+      # Required by BPC Vaadin >= 0.2.3: the only controller(s) the console may contact.
+      - ZITI_CONTROLLERS=https://ziti-controller.local:1281
+      # The controller's quickstart PKI is self-signed, and its certificate lists ziti-controller.local
+      # only when that is also the advertise address, so hostname checks would fail. The traffic stays
+      # on the private container network.
+      - ZITI_TRUST_ALL=true
+    networks:
+      openziti-network:
+        aliases:
+          - console-vaadin.local
+          - console-vaadin
+    depends_on:
+      - ziti-controller
+
   console:
     image: docker.io/nginxinc/nginx-unprivileged:1.31.7-alpine3.24@sha256:b5047b9b76845eac124358373c6852377c52e4b05834a47647e955dd91cb8f1e
     container_name: openziti-console
@@ -228,7 +252,7 @@ services:
       - NGINX_ENVSUBST_FILTER=NGINX_LOCAL_RESOLVERS
     volumes:
       - ./console:/usr/share/nginx/html:ro,z
-      - ./nginx/default.conf:/etc/nginx/templates/default.conf.template:ro,z
+      - ./nginx/${CONSOLE_NGINX_CONF:-default.conf}:/etc/nginx/templates/default.conf.template:ro,z
     networks:
       openziti-network:
         aliases:

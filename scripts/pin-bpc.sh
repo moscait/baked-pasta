@@ -4,9 +4,9 @@
 # scripts/fetch-console.sh, NOTICE and README.md. Nothing is deployed; review and commit the
 # change, then deploy with the usual command.
 #
-#   scripts/pin-bpc.sh latest        # newest published (non-draft, non-prerelease) release
-#   scripts/pin-bpc.sh v0.1.2        # a specific release tag
-#   make bpc-pin [VERSION=v0.1.2]    # same; VERSION defaults to latest
+#   scripts/pin-bpc.sh latest        # newest published (non-draft, non-prerelease) web release
+#   scripts/pin-bpc.sh web-v0.2.4    # a specific release tag (v0.2.3 and older have no web- prefix)
+#   make bpc-pin [VERSION=web-v0.2.4]  # same; VERSION defaults to latest
 #
 # Then, for a routable host:  make console-update TARGET=user@host CONSOLE=bpc
 # The changed pin makes that replace the installed console; no --force is needed.
@@ -23,9 +23,9 @@ VERSION="${1:-latest}"
 case "$VERSION" in
     -h|--help) sed -n '2,14p' "$0"; exit 0 ;;
     latest) ;;
-    v[0-9]*.[0-9]*.[0-9]*) ;;
-    [0-9]*.[0-9]*.[0-9]*) VERSION="v$VERSION" ;;
-    *) echo "Error: expected 'latest' or a release tag like v0.1.2 (got '$VERSION')." >&2; exit 1 ;;
+    web-v[0-9]*.[0-9]*.[0-9]*|v[0-9]*.[0-9]*.[0-9]*) ;;
+    [0-9]*.[0-9]*.[0-9]*) VERSION="web-v$VERSION" ;;
+    *) echo "Error: expected 'latest' or a release tag like web-v0.2.4 or v0.2.3 (got '$VERSION')." >&2; exit 1 ;;
 esac
 
 for tool in curl jq unzip; do
@@ -48,7 +48,13 @@ WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 
 if [ "$VERSION" = latest ]; then
-    api releases/latest > "$WORK/release.json"
+    # Not releases/latest: the repo also publishes Vaadin container releases (vaadin-v*), which have
+    # no console archive. Take the newest published web release (web-v*, or a pre-split v*) instead.
+    api 'releases?per_page=100' |
+        jq --arg a "$ASSET" '[.[] | select((.draft or .prerelease) | not)
+            | select(.tag_name | test("^(web-)?v[0-9]+\\.[0-9]+\\.[0-9]+$"))
+            | select(any(.assets[]; .name == $a))] | sort_by(.published_at) | last // empty' > "$WORK/release.json"
+    [ -s "$WORK/release.json" ] || { echo "Error: no published web release with $ASSET in $REPO." >&2; exit 1; }
 else
     api "releases/tags/$VERSION" > "$WORK/release.json" ||
         { echo "Error: no published release '$VERSION' in $REPO." >&2; exit 1; }
@@ -60,7 +66,7 @@ TAG="$(jq -r '.tag_name' "$WORK/release.json")"
 URL="$(jq -r --arg a "$ASSET" '.assets[] | select(.name == $a) | .browser_download_url' "$WORK/release.json")"
 DIGEST="$(jq -r --arg a "$ASSET" '.assets[] | select(.name == $a) | .digest // ""' "$WORK/release.json")"
 [ -n "$URL" ] || { echo "Error: release $TAG has no $ASSET asset." >&2; exit 1; }
-[[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Error: unexpected tag name '$TAG'." >&2; exit 1; }
+[[ "$TAG" =~ ^(web-)?v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Error: unexpected tag name '$TAG'." >&2; exit 1; }
 [[ "$URL" == "https://github.com/$REPO/releases/download/$TAG/$ASSET" ]] ||
     { echo "Error: unexpected asset URL '$URL'." >&2; exit 1; }
 
@@ -95,7 +101,8 @@ if [ "$(jq -r '.object.type' <<< "$REF")" = tag ]; then
 fi
 [[ "$COMMIT" =~ ^[0-9a-f]{40}$ ]] || { echo "Error: could not resolve $TAG to a commit." >&2; exit 1; }
 SHORT="${COMMIT:0:7}"
-VER="${TAG#v}"
+VER="${TAG#web-}"
+VER="${VER#v}"
 
 # Rewrite the pin. Each pattern matches exactly one line; check that it did.
 OLD_SHA="$(awk -v u="$CURRENT_URL" 'found && /SHA256="/ { sub(/.*SHA256="/, ""); sub(/".*/, ""); print; exit } index($0, u) { found = 1 }' "$FETCH")"
@@ -107,12 +114,12 @@ replace() { # file, sed expression, description
     sed -i.bak "$2" "$1" && rm -f "$1.bak"
     [ "$(cksum < "$1")" != "$before" ] || { echo "Error: did not update $3 in ${1#"$ROOT"/}." >&2; exit 1; }
 }
-replace "$FETCH" "s|# Release v[0-9.]* of https://github.com/$REPO (tag at [0-9a-f]*)|# Release $TAG of https://github.com/$REPO (tag at $SHORT)|" "the release comment"
+replace "$FETCH" "s|# Release \(web-\)\{0,1\}v[0-9.]* of https://github.com/$REPO (tag at [0-9a-f]*)|# Release $TAG of https://github.com/$REPO (tag at $SHORT)|" "the release comment"
 replace "$FETCH" "s|$CURRENT_URL|$URL|" "the URL"
 replace "$FETCH" "s|$OLD_SHA|$SHA|" "the SHA-256"
 replace "$FETCH" "s|LABEL=\"Baked Pasta Console [0-9.]*\"|LABEL=\"Baked Pasta Console $VER\"|" "the label"
-replace "$ROOT/NOTICE" "s|release v[0-9.]*, $ASSET,|release $TAG, $ASSET,|; s|$OLD_SHA|$SHA|" "the BPC entry"
-replace "$ROOT/README.md" "s|\[Release [0-9.]*\](https://github.com/$REPO/releases/tag/v[0-9.]*)|[Release $VER](https://github.com/$REPO/releases/tag/$TAG)|" "the BPC release link"
+replace "$ROOT/NOTICE" "s|release \(web-\)\{0,1\}v[0-9.]*, $ASSET,|release $TAG, $ASSET,|; s|$OLD_SHA|$SHA|" "the BPC entry"
+replace "$ROOT/README.md" "s|\[Release [0-9.]*\](https://github.com/$REPO/releases/tag/\(web-\)\{0,1\}v[0-9.]*)|[Release $VER](https://github.com/$REPO/releases/tag/$TAG)|" "the BPC release link"
 
 echo "✔ Pinned BPC $TAG (commit $SHORT, sha256 $SHA)."
 echo "  Changed: scripts/fetch-console.sh, NOTICE, README.md. Review, commit, then deploy, e.g.:"

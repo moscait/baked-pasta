@@ -1,14 +1,10 @@
 ---
 # ==============================================================================
-# Refresh the OpenZiti Admin Console (ZAC) on an existing deployment
+# Refresh or switch the Admin Console on an existing deployment
 # ==============================================================================
-# Replaces the console files and nginx config in the install directory with the
-# copies from this repository (infrastructure/console/ and nginx/default.conf),
-# then restarts only the openziti-console container.
-#
-# Use it after fetching a newer pinned console, or after building one from source
-# with scripts/build-console.sh. The controller, PKI, identities, tunnel and
-# credentials are not touched, so no Cloudflare token is needed.
+# Supports switching between any of the three console editions (zac, bpc,
+# bpc-vaadin) or refreshing the active console without touching the controller,
+# PKI, identities, tunnel or credentials. No Cloudflare token is needed.
 # ==============================================================================
 - name: Refresh OpenZiti Admin Console
   hosts: all
@@ -16,6 +12,13 @@
   vars_files:
     - vars/main.yml
   tasks:
+    - name: Validate console_type
+      ansible.builtin.assert:
+        that:
+          - console_type in ['zac', 'bpc', 'bpc-vaadin']
+        fail_msg: "Invalid console_type '{{ console_type }}' (expected: zac, bpc, or bpc-vaadin)."
+        quiet: true
+
     - name: Check that OpenZiti is deployed here
       ansible.builtin.stat:
         path: "{{ ziti_install_dir }}/docker-compose.yaml"
@@ -28,33 +31,78 @@
 
     - name: Read the owner of the install directory
       ansible.builtin.stat:
-        path: "{{ ziti_install_dir }}/console"
-      register: console_dir
+        path: "{{ ziti_install_dir }}"
+      register: install_dir_stat
+
+    - name: Read existing .env to preserve tunnel, DDNS, and advertise settings
+      ansible.builtin.slurp:
+        src: "{{ ziti_install_dir }}/.env"
+      register: existing_env_raw
+      no_log: true
+
+    - name: Extract existing deployment settings from .env
+      ansible.builtin.set_fact:
+        _env_text: "{{ existing_env_raw.content | b64decode }}"
+      no_log: true
+
+    - name: Populate template facts from existing .env
+      ansible.builtin.set_fact:
+        clean_tunnel_token: >-
+          {{ (_env_text | regex_search("(?m)^CLOUDFLARE_TUNNEL_TOKEN='?(.*?)'?$", '\1') | default([''], true) | first) | trim }}
+        clean_dns_api_token: >-
+          {{ (_env_text | regex_search("(?m)^CLOUDFLARE_DNS_API_TOKEN='?(.*?)'?$", '\1') | default([''], true) | first) | trim }}
+        ziti_advertise_address: >-
+          {{ (_env_text | regex_search("(?m)^OPENZITI_ADVERTISE_ADDRESS='?(.*?)'?$", '\1') | default(['ziti-controller.local'], true) | first) | trim }}
+      no_log: true
+
+    - name: Compute DDNS flag from existing .env
+      ansible.builtin.set_fact:
+        ddns_enabled: >-
+          {{ (clean_dns_api_token | length > 0) and (ziti_advertise_address != 'ziti-controller.local') and not (ziti_advertise_address is regex('^[0-9.]+$')) }}
+
+    - name: Re-template docker-compose.yaml for {{ console_type }}
+      ansible.builtin.template:
+        src: "{{ playbook_dir }}/../templates/docker-compose.yaml.j2"
+        dest: "{{ ziti_install_dir }}/docker-compose.yaml"
+        owner: "{{ install_dir_stat.stat.pw_name | default(ziti_runtime_user) }}"
+        mode: '0600'
 
     - name: Copy nginx configuration
       ansible.builtin.copy:
-        src: "{{ playbook_dir }}/../nginx/default.conf"
+        src: "{{ playbook_dir }}/../nginx/{{ 'default.vaadin.conf' if console_type == 'bpc-vaadin' else 'default.conf' }}"
         dest: "{{ ziti_install_dir }}/nginx/default.conf"
-        owner: "{{ console_dir.stat.pw_name | default(ziti_runtime_user) }}"
+        owner: "{{ install_dir_stat.stat.pw_name | default(ziti_runtime_user) }}"
         mode: '0644'
 
-    - name: Stage new console files
-      ansible.builtin.copy:
-        src: "{{ playbook_dir }}/../console/"
-        dest: "{{ ziti_install_dir }}/console.new/"
-        owner: "{{ console_dir.stat.pw_name | default(ziti_runtime_user) }}"
-        mode: '0644'
-        directory_mode: '0755'
+    - name: Update static console files (zac / bpc)
+      when: console_type != 'bpc-vaadin'
+      block:
+        - name: Stage new console files
+          ansible.builtin.copy:
+            src: "{{ playbook_dir }}/../console/"
+            dest: "{{ ziti_install_dir }}/console.new/"
+            owner: "{{ install_dir_stat.stat.pw_name | default(ziti_runtime_user) }}"
+            mode: '0644'
+            directory_mode: '0755'
 
-    # Swap directories so stale hashed bundles from the previous build don't linger.
-    - name: Swap in the new console
-      ansible.builtin.shell: |
-        set -e
-        rm -rf "{{ ziti_install_dir }}/console.old"
-        if [ -d "{{ ziti_install_dir }}/console" ]; then mv "{{ ziti_install_dir }}/console" "{{ ziti_install_dir }}/console.old"; fi
-        mv "{{ ziti_install_dir }}/console.new" "{{ ziti_install_dir }}/console"
-        rm -rf "{{ ziti_install_dir }}/console.old"
-      changed_when: true
+        # Swap directories so stale hashed bundles from the previous build don't linger.
+        - name: Swap in the new console
+          ansible.builtin.shell: |
+            set -e
+            rm -rf "{{ ziti_install_dir }}/console.old"
+            if [ -d "{{ ziti_install_dir }}/console" ]; then mv "{{ ziti_install_dir }}/console" "{{ ziti_install_dir }}/console.old"; fi
+            mv "{{ ziti_install_dir }}/console.new" "{{ ziti_install_dir }}/console"
+            rm -rf "{{ ziti_install_dir }}/console.old"
+          changed_when: true
+
+    - name: Pull Vaadin console image
+      when: console_type == 'bpc-vaadin'
+      ansible.builtin.command:
+        cmd: "{{ 'podman' if (ansible_facts['os_family'] == 'RedHat') else 'docker' }} pull {{ bpc_vaadin_image }}"
+      register: pull_res
+      until: pull_res is success
+      retries: 3
+      delay: 3
 
     - name: Apply container SELinux context on RedHat systems
       ansible.builtin.command:
@@ -63,11 +111,29 @@
       changed_when: true
       failed_when: false
 
-    # The console container bind-mounts these directories; a restart re-reads nginx config
-    # and picks up the new directory inode after the swap.
-    - name: Restart the console container
+    - name: Remove Vaadin console container when switching to a static console
+      when: console_type != 'bpc-vaadin'
       ansible.builtin.shell: |
-        if command -v podman >/dev/null 2>&1; then podman restart openziti-console; else docker restart openziti-console; fi
+        if command -v podman >/dev/null 2>&1; then podman rm -f openziti-console-vaadin 2>/dev/null || true; else docker rm -f openziti-console-vaadin 2>/dev/null || true; fi
+      changed_when: true
+
+    - name: Recreate console container(s)
+      ansible.builtin.shell: |
+        SERVICES="console"
+        if [ "{{ console_type }}" = "bpc-vaadin" ]; then
+          SERVICES="console-vaadin console"
+        fi
+        if command -v podman-compose >/dev/null 2>&1; then
+          podman-compose -f docker-compose.yaml up -d --no-deps --force-recreate $SERVICES
+        elif command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then
+          docker compose up -d --no-deps --force-recreate $SERVICES
+        elif command -v podman >/dev/null 2>&1; then
+          podman compose -f docker-compose.yaml up -d --no-deps --force-recreate $SERVICES
+        else
+          docker-compose up -d --no-deps --force-recreate $SERVICES
+        fi
+      args:
+        chdir: "{{ ziti_install_dir }}"
       changed_when: true
 
     - name: Wait for the console to answer on loopback
@@ -75,13 +141,12 @@
         url: "http://127.0.0.1:{{ portal_local_port }}/"
         status_code: 200
       register: console_up
-      retries: 15
+      retries: 30
       delay: 2
       until: console_up.status == 200
 
-    # scripts/fetch-console.sh records every install in .console-source; scripts/build-console.sh
-    # writes BUILD-INFO.txt. Report whichever exists (first_found with skip: no warning if neither).
-    - name: Report the console build
+    - name: Report the console build (static)
+      when: console_type != 'bpc-vaadin'
       vars:
         console_info_file: >-
           {{ lookup('ansible.builtin.first_found',
@@ -89,3 +154,8 @@
                      'paths': [playbook_dir + '/../console'], 'skip': true}) }}
       ansible.builtin.debug:
         msg: "{{ (lookup('ansible.builtin.file', console_info_file) | split('\n')) if console_info_file else 'Console without build information.' }}"
+
+    - name: Report the console image (Vaadin)
+      when: console_type == 'bpc-vaadin'
+      ansible.builtin.debug:
+        msg: "Baked Pasta Console (Vaadin): {{ bpc_vaadin_image }}"

@@ -12,7 +12,8 @@
 #   scripts/fetch-console.sh <target> --console bpc   # Baked Pasta Console instead
 #   scripts/fetch-console.sh <target> --force         # replace an existing console, e.g. a custom build
 #
-#   BPC_DIR=../baked-pasta-console   instead of the release: build BPC from that checkout (npm)
+#   BPC_DIR=../baked-pasta-console   instead of the release: build BPC from that checkout (npm;
+#                                    its web/ folder, or the root of an older checkout)
 #   BPC_ZIP=path/to/console.zip      instead of the release: install a BPC archive built with
 #                                    `npm run package:zac`
 #   BAKED_PASTA_CONSOLE=bpc          default for --console
@@ -26,7 +27,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-usage() { sed -n '2,24p' "$0"; }
+usage() { sed -n '2,25p' "$0"; }
 
 TARGET=""
 CONSOLE="${BAKED_PASTA_CONSOLE:-zac}"
@@ -116,6 +117,10 @@ mkdir "$WORK/console"
 if [ "$CONSOLE" = bpc ] && [ -n "${BPC_DIR:-}" ]; then
     need npm "build the Baked Pasta Console"
     BPC_DIR="$(cd "$BPC_DIR" && pwd)"
+    # The web app lives in web/ of the checkout (older checkouts had it at the root).
+    if [ ! -f "$BPC_DIR/package.json" ] && [ -f "$BPC_DIR/web/package.json" ]; then
+        BPC_DIR="$BPC_DIR/web"
+    fi
     [ -f "$BPC_DIR/package.json" ] || { echo "Error: $BPC_DIR has no package.json." >&2; exit 1; }
     echo "▶ Building the Baked Pasta Console from $BPC_DIR ..."
     if [ ! -d "$BPC_DIR/node_modules" ]; then

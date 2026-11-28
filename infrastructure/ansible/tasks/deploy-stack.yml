@@ -4,8 +4,9 @@
     that:
       - ziti_admin_username is regex('^[A-Za-z0-9._@-]{1,64}$')
       - ziti_advertise_address is regex('^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?$')
+      - console_type in ['zac', 'bpc', 'bpc-vaadin']
     fail_msg: >-
-      Invalid input. Admin username: letters/digits/._@- (max 64). Advertise address: hostname or IPv4.
+      Invalid input. Admin username: letters/digits/._@- (max 64). Advertise address: hostname or IPv4. Console: zac, bpc, or bpc-vaadin.
     quiet: true
 
 # Output is hidden (no_log) so a rejected password is never echoed. On failure the cause is:
@@ -120,12 +121,13 @@
 
 - name: Copy nginx configuration
   ansible.builtin.copy:
-    src: "{{ playbook_dir }}/../nginx/default.conf"
+    src: "{{ playbook_dir }}/../nginx/{{ 'default.vaadin.conf' if console_type == 'bpc-vaadin' else 'default.conf' }}"
     dest: "{{ ziti_install_dir }}/nginx/default.conf"
     owner: "{{ ziti_runtime_user }}"
     mode: '0644'
 
 - name: Copy OpenZiti Admin Console files
+  when: console_type != 'bpc-vaadin'
   ansible.builtin.copy:
     src: "{{ playbook_dir }}/../console/"
     dest: "{{ ziti_install_dir }}/console/"
@@ -168,7 +170,7 @@
 - name: Pull container images natively
   ansible.builtin.command:
     cmd: "{{ 'podman' if (ansible_facts['os_family'] == 'RedHat') else 'docker' }} pull {{ item }}"
-  loop: "{{ [ziti_quickstart_image, nginx_image, cloudflared_image] + ([cloudflare_ddns_image] if (ddns_enabled | bool) else []) }}"
+  loop: "{{ [ziti_quickstart_image, nginx_image, cloudflared_image] + ([bpc_vaadin_image] if console_type == 'bpc-vaadin' else []) + ([cloudflare_ddns_image] if (ddns_enabled | bool) else []) }}"
   register: pull_res
   until: pull_res is success
   retries: 3
@@ -177,10 +179,10 @@
 - name: Clean up legacy or previous stack containers
   ansible.builtin.shell: |
     if command -v podman >/dev/null 2>&1; then
-      podman rm -f homelab-app homelab-portal homelab-tunnel openziti-console openziti-tunnel openziti-ddns ziti-controller.local ziti-setup 2>/dev/null || true
+      podman rm -f homelab-app homelab-portal homelab-tunnel openziti-console openziti-console-vaadin openziti-tunnel openziti-ddns ziti-controller.local ziti-setup 2>/dev/null || true
     fi
     if command -v docker >/dev/null 2>&1; then
-      docker rm -f homelab-app homelab-portal homelab-tunnel openziti-console openziti-tunnel openziti-ddns ziti-controller.local ziti-setup 2>/dev/null || true
+      docker rm -f homelab-app homelab-portal homelab-tunnel openziti-console openziti-console-vaadin openziti-tunnel openziti-ddns ziti-controller.local ziti-setup 2>/dev/null || true
     fi
   args:
     chdir: "{{ ziti_install_dir }}"
@@ -266,10 +268,10 @@
           - "🚀 SUCCESS: OpenZiti Zero-Trust Infrastructure is ACTIVE!"
           - "Access your OpenZiti console via your Cloudflare Zero Trust domain."
           - "-----------------------------------------------------------------"
-          - "OpenZiti Admin Console (ZAC): http://127.0.0.1:{{ portal_local_port }}/ (loopback + Cloudflare Tunnel)"
+          - "Admin Console ({{ console_type }}): http://127.0.0.1:{{ portal_local_port }}/ (loopback + Cloudflare Tunnel)"
           - "OpenZiti Client & Ctrl Plane: https://{{ ziti_advertise_address }}:{{ ziti_ctrl_port }}/ (public mTLS)"
           - "OpenZiti Edge Router:         tls://{{ ziti_advertise_address }}:{{ ziti_router_port }} (public mTLS)"
-          - "OpenZiti Mgmt API:            internal container network only (port {{ ziti_mgmt_port }}, via ZAC)"
+          - "OpenZiti Mgmt API:            {{ 'internal container network only (port ' ~ ziti_mgmt_port ~ ', dark behind Vaadin backend)' if console_type == 'bpc-vaadin' else 'internal container network only (port ' ~ ziti_mgmt_port ~ ', via console proxy)' }}"
           - "Cloudflare DDNS Updater:      {{ 'ACTIVE (auto-updates ' + ziti_advertise_address + ' A record every 5m)' if (ddns_enabled | bool) else 'disabled (no --dns-token supplied)' }}"
           - "-----------------------------------------------------------------"
           - "Administrator Credentials:"

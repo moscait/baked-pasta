@@ -80,6 +80,7 @@ services:
     environment:
       - ZITI_USER=admin
       - ZITI_PWD=${OPENZITI_ADMIN_PASSWORD:?OPENZITI_ADMIN_PASSWORD is not set - run 'make sandbox-up' to generate .env}
+      - CONSOLE_TYPE=${BAKED_PASTA_CONSOLE:-zac}
     volumes:
       - ziti-sandbox-runtime:/persistent
       - ./menu/zac:/workspace/menu/zac:ro
@@ -219,9 +220,9 @@ services:
             echo "Service edge router policy 'app-service-router-policy' already exists."
           fi
 
-          # The Admin Console in menu/zac is downloaded and sha256-verified on the host by
-          # scripts/fetch-console.sh (run by `make sandbox-up`); nothing is downloaded in here.
-          if [ ! -f /workspace/menu/zac/index.html ]; then
+          # The static Admin Console (ZAC or BPC web) in menu/zac is downloaded and sha256-verified on
+          # the host by scripts/fetch-console.sh. The Vaadin edition runs as its own container instead.
+          if [ "$$CONSOLE_TYPE" != "bpc-vaadin" ] && [ ! -f /workspace/menu/zac/index.html ]; then
             echo "ERROR: menu/zac/index.html is missing. Run 'make sandbox-up' or 'scripts/fetch-console.sh sandbox'."
             exit 1
           fi
@@ -333,8 +334,13 @@ services:
         fi
         echo "Detected nameserver: $$NAMESERVER"
 
+        # Select the nginx template for the active console (static SPA vs. Vaadin backend)
+        TEMPLATE=/etc/nginx/default.conf.template
+        if [ "$$CONSOLE_TYPE" = "bpc-vaadin" ]; then
+          TEMPLATE=/etc/nginx/default.vaadin.conf.template
+        fi
         # Replace the placeholder in the template and write to the active configuration
-        sed "s/resolver 127.0.0.11/resolver $$NAMESERVER/g" /etc/nginx/default.conf.template > /etc/nginx/conf.d/default.conf
+        sed "s/resolver 127.0.0.11/resolver $$NAMESERVER/g" "$$TEMPLATE" > /etc/nginx/conf.d/default.conf
 
         exec /docker-entrypoint.sh nginx -g "daemon off;"
     ports:
@@ -342,12 +348,34 @@ services:
       - "${SANDBOX_BIND_ADDR:-127.0.0.1}:8443:8443"
     environment:
       - MG_HOSTNAMES=menu.local
+      - CONSOLE_TYPE=${BAKED_PASTA_CONSOLE:-zac}
     volumes:
       - ./menu:/usr/share/nginx/html:ro
       - ./menu/default.conf:/etc/nginx/default.conf.template:ro
+      - ./menu/default.vaadin.conf:/etc/nginx/default.vaadin.conf.template:ro
       - ziti-sandbox-runtime:/var/zt-runtime:ro
     depends_on:
       dns-server:
         condition: service_started
       ziti-setup:
         condition: service_started
+
+  console-vaadin:
+    profiles: ["vaadin"]
+    image: ${BPC_VAADIN_IMAGE:-ghcr.io/moscait/baked-pasta-console-vaadin:0.2.3@sha256:2d902c20804a8a3ee882644693a640f44e0889cd84533c87cd4cc09a7f7305ff}
+    container_name: console-vaadin.local
+    user: "1001:1001"
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 512m
+    restart: unless-stopped
+    environment:
+      - SERVER_SERVLET_CONTEXT_PATH=/zac
+      # Required by BPC Vaadin >= 0.2.3: the only controller(s) the console may contact.
+      - ZITI_CONTROLLERS=https://ziti-controller.local:1280
+      # The controller's quickstart PKI is self-signed, and its certificate lists ziti-controller.local
+      # only when that is also the advertise address, so hostname checks would fail. The traffic stays
+      # on the private container network.
+      - ZITI_TRUST_ALL=true
+    depends_on:
+      - ziti-controller
