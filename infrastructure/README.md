@@ -83,6 +83,45 @@ The deployer will create an ephemeral TryCloudflare tunnel and print the generat
 > [!WARNING]
 > Quick Tunnel mode has **no Cloudflare Access**. Anyone who learns the random URL reaches the console login and the OpenZiti management API behind it, protected only by the admin password. Use it for short-lived evaluation only. Without a token and without `--quick`, the deployer refuses to run.
 
+### Console Access: Cloudflare, OpenZiti, or Both
+
+By default admins reach the console through Cloudflare Tunnel and Cloudflare Access. Cloudflare terminates TLS at its edge, so it can see console traffic, including the controller password you sign in with. If you'd rather not have a third party in that path, serve the console over your own OpenZiti overlay instead:
+
+```bash
+# Only over OpenZiti: no Cloudflare Tunnel is deployed and no tunnel token is needed.
+./deploy-ziti.sh --ssh user@192.0.2.10 -a ziti.example.com --console-access ziti
+
+# Over both: OpenZiti day to day, Cloudflare Access as a fallback.
+./deploy-ziti.sh --ssh user@192.0.2.10 -a ziti.example.com --console-access both
+
+# Makefile equivalent:
+make ziti-ssh TARGET=user@192.0.2.10 ADVERTISE=ziti.example.com ACCESS=ziti
+```
+
+With `ziti` or `both`, `ziti-setup` creates:
+
+| Entity | Purpose |
+| :--- | :--- |
+| Service `baked-pasta-console` | Intercepts `console.ziti:80`; hosted as `console:8080`, the console's nginx |
+| Identity `console-host` (`#console-hosts`) | Used by the `openziti-console-host` tunneler container, which binds the service. It enrolls itself and listens on no port. |
+| Identity `console-admin` (`#console-admins`) | The first admin device |
+| Policies `console-bind`, `console-dial` | Bind for `#console-hosts`, Dial for `#console-admins` |
+
+Then, on your admin device:
+
+1. Copy the enrollment token: `make ziti-admin-token TARGET=user@192.0.2.10` saves it as `./console-admin.jwt` (or `sudo cat /opt/openziti/console-admin/console-admin.jwt` on the host). It is valid for 24 hours; each redeploy issues a new one until it is used.
+2. Enroll it in a Ziti client (Ziti Desktop Edge, Ziti Mobile Edge, or `ziti-edge-tunnel`), then delete the file.
+3. Open `http://console.ziti/` and sign in with the controller credentials as usual.
+
+To let more people or devices in, give their identities the `#console-admins` attribute in the console.
+
+Notes:
+
+- **Plain HTTP is expected.** The overlay encrypts the connection end to end, and the browser never reaches the server any other way. For `console.ziti`, nginx removes the `Secure` flag from the Vaadin console's session cookie (the browser would otherwise drop it), and HSTS is never sent.
+- **Lockout risk.** With `ziti` only, the console is reachable only over the network it manages. If the controller or router is down, or the console's own service or policies are changed, you cannot get in through the console. Fix it from the host (`ziti edge` inside the controller container) or by redeploying, which recreates anything missing. `both` keeps Cloudflare as a way in. Start with `both` while you get used to it.
+- **Changing modes** takes a full redeploy with the new `--console-access`. A console refresh (`--update-console`) keeps the deployed mode. Switching away from `ziti` leaves the service and identities in place, unused.
+- **Only the deployer supports it.** The manual stack (`make ziti-up`) always serves the console through Cloudflare.
+
 ---
 
 ## 🔐 Credentials & Secrets Management

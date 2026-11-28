@@ -147,6 +147,8 @@ The installer:
 2. Pass your Cloudflare Access authentication (email OTP, Google Workspace, GitHub, or Okta SSO).
 3. The admin console (ZAC, or [BPC](#-choosing-the-admin-console-zac-or-bpc) if you chose it) displays directly at root. Log in with the credentials from `/opt/openziti/.ziti-credentials` on the host.
 
+Don't want Cloudflare in the path? Deploy with `--console-access ziti` (or `ACCESS=ziti` with `make`): the console is then served only as the dark OpenZiti service `http://console.ziti/`, to devices enrolled with the `#console-admins` attribute, and no Cloudflare Tunnel is deployed. `--console-access both` keeps Cloudflare as a fallback. See [Console Access: Cloudflare, OpenZiti, or Both](infrastructure/README.md#console-access-cloudflare-openziti-or-both).
+
 ### 3. Connect Example Applications to the Routable Infrastructure
 Once the infrastructure is active, you can run containerized applications locally on your workstation that connect directly to your routable OpenZiti control plane:
 - Use ZAC to create a service and generate an enrollment identity (`.jwt`).

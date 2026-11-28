@@ -33,10 +33,16 @@ allow_quick_tunnel: false
 # or bpc-vaadin (Baked Pasta Console Vaadin server-side edition).
 console_type: "{{ lookup('env', 'BAKED_PASTA_CONSOLE') | default('zac', true) }}"
 
+# How admins reach the console: cloudflare (Cloudflare Tunnel + Access), ziti (only over the
+# OpenZiti overlay, as http://console.ziti/), or both. With ziti, no Cloudflare Tunnel is deployed
+# and Cloudflare never sees console traffic or credentials.
+console_access: "{{ lookup('env', 'BAKED_PASTA_CONSOLE_ACCESS') | default('cloudflare', true) }}"
+
 # Core OpenZiti Infrastructure Images (100% public, no auth required).
 # Pinned by tag AND digest for reproducible, tamper-evident deployments. Bump deliberately.
 ziti_quickstart_image: "docker.io/openziti/quickstart:2.0.8@sha256:a73d81b46a526a46a677f9f3ee8c2a31c6672935357b08312e99adda94e02bd3"
 cloudflared_image: "docker.io/cloudflare/cloudflared:2026.11.1@sha256:e613aadbc2d9511785d2e67a86b0c8ac18dd63a3f9af0d06faf04cbfdcb35f2d"
+ziti_host_image: "docker.io/openziti/ziti-host:1.20.0@sha256:f0ef49efeb36413782b6d8642bb94dbb5a56812535d9d4b4f46d803658595b80"
 cloudflare_ddns_image: "docker.io/favonia/cloudflare-ddns:1.18.0@sha256:345b41895a8846d74c62d30bd27e61101a754f8ab8da10c68115823883803afb"
 nginx_image: "docker.io/nginxinc/nginx-unprivileged:1.31.7-alpine3.24@sha256:b5047b9b76845eac124358373c6852377c52e4b05834a47647e955dd91cb8f1e"
 bpc_vaadin_image: "ghcr.io/moscait/baked-pasta-console-vaadin:0.2.3@sha256:2d902c20804a8a3ee882644693a640f44e0889cd84533c87cd4cc09a7f7305ff"

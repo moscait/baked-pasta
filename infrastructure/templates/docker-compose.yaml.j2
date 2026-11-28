@@ -2,6 +2,10 @@ name: openziti
 
 # SECURITY: this file contains no secrets. Credentials and tokens are interpolated at
 # runtime from the sibling .env file (mode 0600) written by Ansible.
+{% set access = console_access | default('cloudflare') %}
+{% set console_over_ziti = access in ['ziti', 'both'] %}
+{% set console_over_cloudflare = access in ['cloudflare', 'both'] %}
+# Admin console access: {{ access }}
 
 volumes:
   ziti-pki-data:
@@ -162,11 +166,20 @@ services:
       - ZITI_USER=${OPENZITI_ADMIN_USER:?OPENZITI_ADMIN_USER missing from .env}
       - ZITI_PWD=${OPENZITI_ADMIN_PASSWORD:?OPENZITI_ADMIN_PASSWORD missing from .env}
       - ZITI_MGMT_PORT={{ ziti_mgmt_port }}
+      - CONSOLE_ACCESS={{ access }}
+{% if console_over_ziti %}
+    volumes:
+      # Enrollment tokens: console-host/ is shared with the console tunneler, console-admin/ holds
+      # the first admin's token for the operator to collect.
+      - ./console-host:/console-host:z
+      - ./console-admin:/console-admin:z
+{% endif %}
     entrypoint:
       - bash
       - -c
       - |
         set -euo pipefail
+        Z=/var/openziti/ziti-bin/ziti
 
         # Shares the controller's network namespace (network_mode below), so it connects via
         # localhost: the controller certificate always lists localhost, while ziti-controller.local
@@ -209,7 +222,66 @@ services:
 
           echo "OpenZiti Controller and Router ready!"
         }
+
+        exists() {
+          "$$Z" edge list "$$1" "name = \"$$2\"" -j | jq -e '.data | length > 0' >/dev/null
+        }
+
+        # Console access over the OpenZiti overlay (CONSOLE_ACCESS=ziti or both). Each step runs only
+        # when its entity is missing, so a redeploy keeps existing identities and policies.
+        #   - service baked-pasta-console: intercepts console.ziti:80, hosted as console:8080 (nginx)
+        #   - identity console-host (#console-hosts), enrolled by the openziti-console-host tunneler
+        #   - identity console-admin (#console-admins): the first admin device
+        #   - a Bind policy for #console-hosts and a Dial policy for #console-admins
+        setup_console_access() {
+          case "$${CONSOLE_ACCESS:-cloudflare}" in
+            ziti|both) ;;
+            *) return 0 ;;
+          esac
+          local svc=baked-pasta-console eid
+          echo "Configuring console access over the OpenZiti overlay (http://console.ziti/)..."
+          exists configs console-intercept || retry "$$Z" edge create config console-intercept intercept.v1 \
+            '{"protocols":["tcp"],"addresses":["console.ziti"],"portRanges":[{"low":80,"high":80}]}'
+          exists configs console-host || retry "$$Z" edge create config console-host host.v1 \
+            '{"protocol":"tcp","address":"console","port":8080}'
+          exists services "$$svc" || retry "$$Z" edge create service "$$svc" --configs console-intercept,console-host
+          exists service-policies console-bind || retry "$$Z" edge create service-policy console-bind Bind \
+            --service-roles "@$$svc" --identity-roles '#console-hosts'
+          exists service-policies console-dial || retry "$$Z" edge create service-policy console-dial Dial \
+            --service-roles "@$$svc" --identity-roles '#console-admins'
+
+          # The tunneler turns console-host.jwt into console-host.json. Without that file (first run,
+          # or it was deleted) start over with a fresh identity, since its old key is gone.
+          if [ -s /console-host/console-host.json ]; then
+            rm -f /console-host/console-host.jwt
+          else
+            if exists identities console-host; then
+              retry "$$Z" edge delete identity console-host
+            fi
+            rm -f /console-host/console-host.jwt /console-host/.console-host.jwt
+            retry "$$Z" edge create identity console-host -a console-hosts -o /console-host/.console-host.jwt
+            # The tunneler runs as another user in group 2171; publish the token in one step.
+            chmod 0640 /console-host/.console-host.jwt
+            mv /console-host/.console-host.jwt /console-host/console-host.jwt
+          fi
+
+          exists identities console-admin || retry "$$Z" edge create identity console-admin -a console-admins
+          if "$$Z" edge list identities 'name = "console-admin"' -j | jq -e '.data[0].authenticators | length > 0' >/dev/null; then
+            rm -f /console-admin/console-admin.jwt
+            echo "console-admin is enrolled."
+          else
+            # Not enrolled yet: replace any pending token with one valid for 24 hours, so every
+            # deploy leaves a usable token behind.
+            eid=$$("$$Z" edge list identities 'name = "console-admin"' -j | jq -r '.data[0].enrollment.ott.id // empty')
+            if [ -n "$$eid" ]; then
+              retry "$$Z" edge delete enrollment "$$eid"
+            fi
+            retry "$$Z" edge create enrollment ott console-admin --duration 1440 -o /console-admin/console-admin.jwt
+            echo "Enrollment token for the first admin device: console-admin/console-admin.jwt (valid 24 hours)."
+          fi
+        }
         setup_ziti
+        setup_console_access
     network_mode: "service:ziti-controller"
     depends_on:
       - ziti-controller
@@ -267,6 +339,33 @@ services:
 {% if console_type | default('zac') == 'bpc-vaadin' %}
       - console-vaadin
 {% endif %}
+{% if console_over_ziti %}
+
+  # Publishes the console as the dark OpenZiti service baked-pasta-console (http://console.ziti/).
+  # It enrolls the token ziti-setup leaves in ./console-host and then dials out to the edge router;
+  # it listens on nothing. Admin devices need an identity with the #console-admins attribute.
+  console-ziti-host:
+    image: {{ ziti_host_image }}
+    container_name: openziti-console-host
+    user: "65534:2171"
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 128m
+    restart: unless-stopped
+    environment:
+      - ZITI_IDENTITY_BASENAME=console-host
+      # Wait for ziti-setup to create the enrollment token instead of exiting.
+      - ZITI_IDENTITY_WAIT=-1
+    volumes:
+      - ./console-host:/ziti-edge-tunnel:z
+    command: ["run-host"]
+    networks:
+      - openziti-network
+    depends_on:
+      - ziti-controller
+      - console
+{% endif %}
+{% if console_over_cloudflare %}
 
   cloudflared:
     image: {{ cloudflared_image }}
@@ -287,6 +386,7 @@ services:
 {% endif %}
     depends_on:
       - console
+{% endif %}
 {% if ddns_enabled | default(false) | bool %}
 
   # Automatic Cloudflare Dynamic DNS (DDNS) updater for non-static home WAN IPs

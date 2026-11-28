@@ -5,9 +5,16 @@
       - ziti_admin_username is regex('^[A-Za-z0-9._@-]{1,64}$')
       - ziti_advertise_address is regex('^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?$')
       - console_type in ['zac', 'bpc', 'bpc-vaadin']
+      - console_access in ['cloudflare', 'ziti', 'both']
     fail_msg: >-
-      Invalid input. Admin username: letters/digits/._@- (max 64). Advertise address: hostname or IPv4. Console: zac, bpc, or bpc-vaadin.
+      Invalid input. Admin username: letters/digits/._@- (max 64). Advertise address: hostname or IPv4.
+      Console: zac, bpc, or bpc-vaadin. Console access: cloudflare, ziti, or both.
     quiet: true
+
+- name: Decide how admins reach the console
+  ansible.builtin.set_fact:
+    console_over_ziti: "{{ console_access in ['ziti', 'both'] }}"
+    console_over_cloudflare: "{{ console_access in ['cloudflare', 'both'] }}"
 
 # Output is hidden (no_log) so a rejected password is never echoed. On failure the cause is:
 # admin password must be 12-128 chars with no quotes, backslashes, '$', backticks or whitespace.
@@ -19,6 +26,7 @@
   no_log: true
 
 - name: Refuse an unauthenticated TryCloudflare Quick Tunnel unless explicitly allowed
+  when: console_over_cloudflare | bool
   ansible.builtin.assert:
     that:
       - (cloudflare_tunnel_token | default('') | trim | length > 0) or (allow_quick_tunnel | bool)
@@ -103,10 +111,26 @@
     - nginx
     - console
 
+# Enrollment tokens. ziti-setup (uid 2171) writes both; the console tunneler runs as uid 65534 in
+# group 2171 and enrolls from console-host/. console-admin/ is for the operator only.
+- name: Create console access directories
+  when: console_over_ziti | bool
+  ansible.builtin.file:
+    path: "{{ ziti_install_dir }}/{{ item.name }}"
+    state: directory
+    owner: "2171"
+    group: "2171"
+    mode: "{{ item.mode }}"
+  loop:
+    - { name: console-host, mode: '0770' }
+    - { name: console-admin, mode: '0700' }
+
 - name: Sanitize Cloudflare Tunnel Token
   ansible.builtin.set_fact:
+    # No tunnel is deployed with console_access=ziti, so a token is not kept either.
     clean_tunnel_token: >-
-      {{ cloudflare_tunnel_token | default('', true) | regex_replace('[^A-Za-z0-9_.+/=-]', '') }}
+      {{ (cloudflare_tunnel_token | default('', true) | regex_replace('[^A-Za-z0-9_.+/=-]', ''))
+         if (console_over_cloudflare | bool) else '' }}
     clean_dns_api_token: >-
       {{ cloudflare_dns_api_token | default('', true) | regex_replace('[^A-Za-z0-9_.-]', '') }}
     ddns_enabled: >-
@@ -152,6 +176,7 @@
       OPENZITI_ADMIN_USER='{{ ziti_admin_username }}'
       OPENZITI_ADMIN_PASSWORD='{{ active_ziti_password }}'
       OPENZITI_ADVERTISE_ADDRESS='{{ ziti_advertise_address }}'
+      CONSOLE_ACCESS='{{ console_access }}'
     owner: "{{ ziti_runtime_user }}"
     mode: '0600'
   no_log: true
@@ -170,7 +195,12 @@
 - name: Pull container images natively
   ansible.builtin.command:
     cmd: "{{ 'podman' if (ansible_facts['os_family'] == 'RedHat') else 'docker' }} pull {{ item }}"
-  loop: "{{ [ziti_quickstart_image, nginx_image, cloudflared_image] + ([bpc_vaadin_image] if console_type == 'bpc-vaadin' else []) + ([cloudflare_ddns_image] if (ddns_enabled | bool) else []) }}"
+  loop: >-
+    {{ [ziti_quickstart_image, nginx_image]
+       + ([cloudflared_image] if (console_over_cloudflare | bool) else [])
+       + ([ziti_host_image] if (console_over_ziti | bool) else [])
+       + ([bpc_vaadin_image] if console_type == 'bpc-vaadin' else [])
+       + ([cloudflare_ddns_image] if (ddns_enabled | bool) else []) }}
   register: pull_res
   until: pull_res is success
   retries: 3
@@ -179,10 +209,10 @@
 - name: Clean up legacy or previous stack containers
   ansible.builtin.shell: |
     if command -v podman >/dev/null 2>&1; then
-      podman rm -f homelab-app homelab-portal homelab-tunnel openziti-console openziti-console-vaadin openziti-tunnel openziti-ddns ziti-controller.local ziti-setup 2>/dev/null || true
+      podman rm -f homelab-app homelab-portal homelab-tunnel openziti-console openziti-console-vaadin openziti-console-host openziti-tunnel openziti-ddns ziti-controller.local ziti-setup 2>/dev/null || true
     fi
     if command -v docker >/dev/null 2>&1; then
-      docker rm -f homelab-app homelab-portal homelab-tunnel openziti-console openziti-console-vaadin openziti-tunnel openziti-ddns ziti-controller.local ziti-setup 2>/dev/null || true
+      docker rm -f homelab-app homelab-portal homelab-tunnel openziti-console openziti-console-vaadin openziti-console-host openziti-tunnel openziti-ddns ziti-controller.local ziti-setup 2>/dev/null || true
     fi
   args:
     chdir: "{{ ziti_install_dir }}"
@@ -224,7 +254,7 @@
     msg: "{{ compose_ps_result.stdout_lines }}"
 
 - name: Check for TryCloudflare Quick Tunnel URL in logs (if no token configured)
-  when: clean_tunnel_token == ''
+  when: (console_over_cloudflare | bool) and clean_tunnel_token == ''
   block:
     - name: Fetch cloudflared logs
       ansible.builtin.shell: |
@@ -260,15 +290,45 @@
           - "Password: stored in {{ ziti_install_dir }}/.ziti-credentials (sudo cat to view)"
           - "================================================================="
 
+# ziti-setup creates the console's OpenZiti service, identities and the admin enrollment token.
+# Wait for it, so a failure is reported here and the token exists before the summary points to it.
+- name: Wait for ziti-setup to configure console access
+  when: console_over_ziti | bool
+  ansible.builtin.shell: |
+    rt=docker; command -v podman >/dev/null 2>&1 && rt=podman
+    code="$(timeout 300 "$rt" wait ziti-setup)" || { echo "ziti-setup did not finish within 5 minutes" >&2; exit 1; }
+    if [ "$code" != "0" ]; then "$rt" logs --tail 30 ziti-setup >&2; exit 1; fi
+  args:
+    chdir: "{{ ziti_install_dir }}"
+  changed_when: false
+
+- name: Check for the first admin's enrollment token
+  when: console_over_ziti | bool
+  ansible.builtin.stat:
+    path: "{{ ziti_install_dir }}/console-admin/console-admin.jwt"
+  register: console_admin_jwt
+
+- name: Output console access over OpenZiti
+  when: console_over_ziti | bool
+  ansible.builtin.debug:
+    msg:
+      - "================================================================="
+      - "Admin Console over OpenZiti: http://console.ziti/ (service baked-pasta-console)"
+      - "Any identity with the #console-admins attribute can open it."
+      - "{{ ('First admin device: enroll ' + ziti_install_dir + '/console-admin/console-admin.jwt (valid 24 hours; sudo cat to copy it, or make ziti-admin-token). A redeploy issues a fresh one until it is used.')
+            if (console_admin_jwt.stat.exists | default(false))
+            else 'The console-admin identity is already enrolled. Add the #console-admins attribute to other identities to grant access.' }}"
+      - "================================================================="
+
 - name: Output deployment summary for token-based tunnels
-  when: clean_tunnel_token != ''
+  when: clean_tunnel_token != '' or console_access == 'ziti'
   ansible.builtin.debug:
         msg:
           - "================================================================="
           - "🚀 SUCCESS: OpenZiti Zero-Trust Infrastructure is ACTIVE!"
-          - "Access your OpenZiti console via your Cloudflare Zero Trust domain."
+          - "{{ 'Access your OpenZiti console via your Cloudflare Zero Trust domain.' if (console_over_cloudflare | bool) else 'The console is reachable only over the OpenZiti overlay (no Cloudflare Tunnel).' }}"
           - "-----------------------------------------------------------------"
-          - "Admin Console ({{ console_type }}): http://127.0.0.1:{{ portal_local_port }}/ (loopback + Cloudflare Tunnel)"
+          - "Admin Console ({{ console_type }}): http://127.0.0.1:{{ portal_local_port }}/ (loopback{{ ' + Cloudflare Tunnel' if (console_over_cloudflare | bool) else '' }}{{ ' + OpenZiti service' if (console_over_ziti | bool) else '' }})"
           - "OpenZiti Client & Ctrl Plane: https://{{ ziti_advertise_address }}:{{ ziti_ctrl_port }}/ (public mTLS)"
           - "OpenZiti Edge Router:         tls://{{ ziti_advertise_address }}:{{ ziti_router_port }} (public mTLS)"
           - "OpenZiti Mgmt API:            {{ 'internal container network only (port ' ~ ziti_mgmt_port ~ ', dark behind Vaadin backend)' if console_type == 'bpc-vaadin' else 'internal container network only (port ' ~ ziti_mgmt_port ~ ', via console proxy)' }}"
@@ -277,5 +337,5 @@
           - "Administrator Credentials:"
           - "  Username: {{ ziti_admin_username }}"
           - "  Password: stored in {{ ziti_install_dir }}/.ziti-credentials (sudo cat to view)"
-          - "Protect the console hostname with a Cloudflare Access policy (see infrastructure/CLOUDFLARE.md)."
+          - "{{ 'Protect the console hostname with a Cloudflare Access policy (see infrastructure/CLOUDFLARE.md).' if (console_over_cloudflare | bool) else 'Console: http://console.ziti/ from a device enrolled with the #console-admins attribute.' }}"
           - "================================================================="
