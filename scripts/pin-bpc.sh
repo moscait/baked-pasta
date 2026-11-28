@@ -4,9 +4,9 @@
 # scripts/fetch-console.sh, NOTICE and README.md. Nothing is deployed; review and commit the
 # change, then deploy with the usual command.
 #
-#   scripts/pin-bpc.sh latest        # newest published (non-draft, non-prerelease) release
-#   scripts/pin-bpc.sh v0.1.2        # a specific release tag
-#   make bpc-pin [VERSION=v0.1.2]    # same; VERSION defaults to latest
+#   scripts/pin-bpc.sh latest        # newest published (non-draft, non-prerelease) web release
+#   scripts/pin-bpc.sh web-v0.2.4    # a specific release tag (v0.2.3 and older have no web- prefix)
+#   make bpc-pin [VERSION=web-v0.2.4]  # same; VERSION defaults to latest
 #
 # Then, for a routable host:  make console-update TARGET=user@host CONSOLE=bpc
 # The changed pin makes that replace the installed console; no --force is needed.
@@ -48,7 +48,13 @@ WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 
 if [ "$VERSION" = latest ]; then
-    api releases/latest > "$WORK/release.json"
+    # Not releases/latest: the repo also publishes Vaadin container releases (vaadin-v*), which have
+    # no console archive. Take the newest published web release (web-v*, or a pre-split v*) instead.
+    api 'releases?per_page=100' |
+        jq --arg a "$ASSET" '[.[] | select((.draft or .prerelease) | not)
+            | select(.tag_name | test("^(web-)?v[0-9]+\\.[0-9]+\\.[0-9]+$"))
+            | select(any(.assets[]; .name == $a))] | sort_by(.published_at) | last // empty' > "$WORK/release.json"
+    [ -s "$WORK/release.json" ] || { echo "Error: no published web release with $ASSET in $REPO." >&2; exit 1; }
 else
     api "releases/tags/$VERSION" > "$WORK/release.json" ||
         { echo "Error: no published release '$VERSION' in $REPO." >&2; exit 1; }

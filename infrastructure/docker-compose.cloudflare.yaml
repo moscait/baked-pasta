@@ -215,7 +215,7 @@ services:
 
   console-vaadin:
     profiles: ["vaadin"]
-    image: ${BPC_VAADIN_IMAGE:-ghcr.io/moscait/baked-pasta-console-vaadin:0.2.3}
+    image: ${BPC_VAADIN_IMAGE:-ghcr.io/moscait/baked-pasta-console-vaadin:0.2.3@sha256:2d902c20804a8a3ee882644693a640f44e0889cd84533c87cd4cc09a7f7305ff}
     container_name: openziti-console-vaadin
     user: "1001:1001"
     security_opt:

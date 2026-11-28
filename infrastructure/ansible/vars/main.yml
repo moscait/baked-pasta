@@ -39,8 +39,7 @@ ziti_quickstart_image: "docker.io/openziti/quickstart:2.0.8@sha256:a73d81b46a526
 cloudflared_image: "docker.io/cloudflare/cloudflared:2026.11.1@sha256:e613aadbc2d9511785d2e67a86b0c8ac18dd63a3f9af0d06faf04cbfdcb35f2d"
 cloudflare_ddns_image: "docker.io/favonia/cloudflare-ddns:1.18.0@sha256:345b41895a8846d74c62d30bd27e61101a754f8ab8da10c68115823883803afb"
 nginx_image: "docker.io/nginxinc/nginx-unprivileged:1.31.7-alpine3.24@sha256:b5047b9b76845eac124358373c6852377c52e4b05834a47647e955dd91cb8f1e"
-# Pin with @sha256:... once the first vaadin-v* multi-arch image is published to GHCR.
-bpc_vaadin_image: "ghcr.io/moscait/baked-pasta-console-vaadin:0.2.3"
+bpc_vaadin_image: "ghcr.io/moscait/baked-pasta-console-vaadin:0.2.3@sha256:2d902c20804a8a3ee882644693a640f44e0889cd84533c87cd4cc09a7f7305ff"
 
 # Local host ports
 portal_local_port: 8080
