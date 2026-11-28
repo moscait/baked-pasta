@@ -24,6 +24,8 @@ QUICK_MODE=false
 TEARDOWN=false
 UPDATE_CONSOLE=false
 CONSOLE="${BAKED_PASTA_CONSOLE:-zac}"
+CONSOLE_ACCESS="${BAKED_PASTA_CONSOLE_ACCESS:-cloudflare}"
+CONSOLE_ACCESS_GIVEN=false
 CHECK_TOKEN_ONLY=false
 KEEP_DATA=false
 ASSUME_YES=false
@@ -95,6 +97,13 @@ Options:
                               (Baked Pasta Console Web), or bpc-vaadin (Baked Pasta Console Vaadin
                               server-side container). Also BAKED_PASTA_CONSOLE. For bpc, set BPC_DIR
                               (a checkout) or BPC_ZIP (an archive) to use an unreleased build instead.
+      --console-access <cloudflare|ziti|both>
+                              How admins reach the console. cloudflare (default): Cloudflare Tunnel
+                              + Access. ziti: only over the OpenZiti overlay as http://console.ziti/,
+                              with no Cloudflare Tunnel (Cloudflare never sees console traffic); the
+                              first admin device enrolls /opt/openziti/console-admin/console-admin.jwt.
+                              both: either way, e.g. Ziti day to day with Cloudflare as a fallback.
+                              Also BAKED_PASTA_CONSOLE_ACCESS. Change it by redeploying.
       --check-token           Check that CLOUDFLARE_TUNNEL_TOKEN is a well-formed tunnel token,
                               print the tunnel ID it belongs to, and exit without deploying.
   -h, --help                  Show this help message.
@@ -111,13 +120,16 @@ Examples:
   # 2. Run locally directly on a Fedora or Ubuntu host:
   CLOUDFLARE_TUNNEL_TOKEN=... ./$(basename "$0") -a ziti.example.com
 
-  # 3. Quick Tunnel (TryCloudflare - no account; console publicly reachable, see --quick):
+  # 3. Console only over OpenZiti (no Cloudflare Tunnel or token):
+  ./$(basename "$0") --ssh user@192.0.2.10 -a ziti.example.com --console-access ziti
+
+  # 4. Quick Tunnel (TryCloudflare - no account; console publicly reachable, see --quick):
   ./$(basename "$0") --quick
 
-  # 4. Tear down remote infrastructure completely over SSH:
+  # 5. Tear down remote infrastructure completely over SSH:
   ./$(basename "$0") --ssh user@192.0.2.10 --teardown
 
-  # 5. Stop/remove containers but keep PKI, identities and credentials:
+  # 6. Stop/remove containers but keep PKI, identities and credentials:
   ./$(basename "$0") --ssh user@192.0.2.10 --teardown --keep-data
 
 Note: SSH host keys are verified. Connect once with 'ssh user@host' to trust a new host first.
@@ -187,6 +199,11 @@ while [[ $# -gt 0 ]]; do
             CONSOLE="${2:-}"
             shift 2
             ;;
+        --console-access)
+            CONSOLE_ACCESS="${2:-}"
+            CONSOLE_ACCESS_GIVEN=true
+            shift 2
+            ;;
         -h|--help)
             show_help
             exit 0
@@ -202,6 +219,10 @@ done
 case "$CONSOLE" in
     zac|bpc|bpc-vaadin) ;;
     *) echo -e "${RED}Error: --console must be zac, bpc, or bpc-vaadin (got '$CONSOLE').${NC}"; exit 1 ;;
+esac
+case "$CONSOLE_ACCESS" in
+    cloudflare|ziti|both) ;;
+    *) echo -e "${RED}Error: --console-access must be cloudflare, ziti, or both (got '$CONSOLE_ACCESS').${NC}"; exit 1 ;;
 esac
 
 # Sanitize and extract raw Cloudflare token if present
@@ -299,6 +320,17 @@ if [ "$TEARDOWN" = true ] || [ "$UPDATE_CONSOLE" = true ]; then
     MAINTENANCE=true
 fi
 [ "$TEARDOWN" = true ] && [ "$UPDATE_CONSOLE" = true ] && die "--teardown and --update-console cannot be combined."
+if [ "$UPDATE_CONSOLE" = true ] && [ "$CONSOLE_ACCESS_GIVEN" = true ]; then
+    die "--update-console keeps the deployed console access. To change it, redeploy with --console-access."
+fi
+if [ "$CONSOLE_ACCESS" = ziti ] && [ "$QUICK_MODE" = true ]; then
+    die "--quick starts a Cloudflare Quick Tunnel, which --console-access ziti does not deploy."
+fi
+# With console access over OpenZiti only, no Cloudflare Tunnel is deployed and no token is needed.
+NEEDS_TUNNEL=true
+if [ "$CONSOLE_ACCESS" = ziti ] || [ "$MAINTENANCE" = true ]; then
+    NEEDS_TUNNEL=false
+fi
 
 if [ "${CHECK_TOKEN_ONLY:-false}" = true ]; then
     [ -n "$TOKEN" ] || die "no token to check. Set CLOUDFLARE_TUNNEL_TOKEN first."
@@ -306,7 +338,7 @@ if [ "${CHECK_TOKEN_ONLY:-false}" = true ]; then
     echo "Compare this ID with the tunnel in Cloudflare Zero Trust > Networks > Tunnels."
     exit 0
 fi
-if [ -n "$TOKEN" ] && [ "$QUICK_MODE" = false ] && [ "$MAINTENANCE" = false ]; then
+if [ -n "$TOKEN" ] && [ "$QUICK_MODE" = false ] && [ "$NEEDS_TUNNEL" = true ]; then
     check_tunnel_token "$TOKEN"
 fi
 
@@ -363,6 +395,9 @@ if [ -n "$SSH_STREAM_HOST" ]; then
     echo -e "${CYAN}======================================================================${NC}\n"
 
     REMOTE_FLAGS="--console $CONSOLE"
+    if [ "$MAINTENANCE" = false ]; then
+        REMOTE_FLAGS="$REMOTE_FLAGS --console-access $CONSOLE_ACCESS"
+    fi
     if [ "$QUICK_MODE" = true ]; then
         REMOTE_FLAGS="$REMOTE_FLAGS --quick"
     fi
@@ -452,6 +487,7 @@ if [ "$OS_NAME" = "Darwin" ] && [ "$TARGET" = "localhost" ]; then
         export CLOUDFLARE_TUNNEL_TOKEN="$TOKEN" CLOUDFLARE_DNS_API_TOKEN="$DNS_TOKEN" \
                OPENZITI_ADMIN_USER="$ADMIN_USER" OPENZITI_ADMIN_PASSWORD="$ADMIN_PASSWORD"
         REEXEC_ARGS=(--ssh "$REMOTE_INPUT" --console "$CONSOLE")
+        [ "$MAINTENANCE" = false ] && REEXEC_ARGS+=(--console-access "$CONSOLE_ACCESS")
         [ -n "$ADVERTISE_ADDRESS" ] && REEXEC_ARGS+=(--advertise-address "$ADVERTISE_ADDRESS")
         [ "$QUICK_MODE" = true ] && REEXEC_ARGS+=(--quick)
         # TEARDOWN_ARGS holds only fixed flags (no user input), so word splitting is intended.
@@ -470,7 +506,7 @@ warn_quick_tunnel() {
 }
 
 # Prompt for token if not supplied and quick mode not explicitly requested
-if [ -z "$TOKEN" ] && [ "$QUICK_MODE" = false ] && [ "$MAINTENANCE" = false ]; then
+if [ -z "$TOKEN" ] && [ "$QUICK_MODE" = false ] && [ "$NEEDS_TUNNEL" = true ]; then
     if [ ! -t 0 ]; then
         die "no Cloudflare Tunnel token supplied. Set CLOUDFLARE_TUNNEL_TOKEN, or pass --quick to explicitly opt in to an unauthenticated TryCloudflare Quick Tunnel."
     fi
@@ -635,6 +671,7 @@ if [ "$QUICK_MODE" = true ]; then
     ALLOW_QUICK_TUNNEL=true
 fi
 BAKED_PASTA_CONSOLE="$CONSOLE" \
+BAKED_PASTA_CONSOLE_ACCESS="$CONSOLE_ACCESS" \
 CLOUDFLARE_TUNNEL_TOKEN="$TOKEN" \
 CLOUDFLARE_DNS_API_TOKEN="$DNS_TOKEN" \
 OPENZITI_ADMIN_USER="$ADMIN_USER" \
@@ -650,7 +687,12 @@ ANSIBLE_CONFIG="$ROOT_DIR/infrastructure/ansible/ansible.cfg" ansible-playbook \
 echo -e "\n${GREEN}======================================================${NC}"
 echo -e "${GREEN}✔ OPENZITI INFRASTRUCTURE DEPLOYED SUCCESSFULLY!${NC}"
 echo -e "${GREEN}======================================================${NC}"
-echo -e "Admin Console (${CONSOLE}):       ${CYAN}http://127.0.0.1:8080/ (loopback + Cloudflare Tunnel)${NC}"
+case "$CONSOLE_ACCESS" in
+    cloudflare) CONSOLE_PATHS="loopback + Cloudflare Tunnel" ;;
+    ziti)       CONSOLE_PATHS="loopback + OpenZiti service" ;;
+    both)       CONSOLE_PATHS="loopback + Cloudflare Tunnel + OpenZiti service" ;;
+esac
+echo -e "Admin Console (${CONSOLE}):       ${CYAN}http://127.0.0.1:8080/ (${CONSOLE_PATHS})${NC}"
 echo -e "OpenZiti Client & Ctrl Plane: ${CYAN}https://${ADVERTISE_ADDRESS}:1280/ (public mTLS)${NC}"
 echo -e "OpenZiti Edge Router:         ${CYAN}tls://${ADVERTISE_ADDRESS}:8444 (public mTLS)${NC}"
 if [ "$CONSOLE" = "bpc-vaadin" ]; then
@@ -669,7 +711,13 @@ else
 fi
 echo -e "Credentials file (0600):      ${BLUE}/opt/openziti/.ziti-credentials${NC}"
 echo -e "                              view on the host with: ${CYAN}sudo cat /opt/openziti/.ziti-credentials${NC}"
-if [ "$QUICK_MODE" = true ]; then
+if [ "$CONSOLE_ACCESS" != cloudflare ]; then
+    echo -e "Console over OpenZiti:        ${GREEN}http://console.ziti/ for identities with #console-admins${NC}"
+    echo -e "First admin device token:     ${BLUE}/opt/openziti/console-admin/console-admin.jwt${NC} (24h, until used)"
+fi
+if [ "$CONSOLE_ACCESS" = ziti ]; then
+    :
+elif [ "$QUICK_MODE" = true ]; then
     echo -e "Console Ingress:              ${YELLOW}TryCloudflare Quick Tunnel (NO Cloudflare Access)${NC}"
 else
     echo -e "Protected Console Ingress:    ${GREEN}Cloudflare Tunnel (port 8080 loopback-only) - enable Cloudflare Access!${NC}"

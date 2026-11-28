@@ -28,7 +28,9 @@
     stack_containers:
       - openziti-ddns
       - openziti-tunnel
+      - openziti-console-host
       - openziti-console
+      - openziti-console-vaadin
       - ziti-setup
       - ziti-controller.local
       # Legacy container names from earlier versions of this stack

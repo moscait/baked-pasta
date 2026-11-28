@@ -5,6 +5,8 @@
 # Supports switching between any of the three console editions (zac, bpc,
 # bpc-vaadin) or refreshing the active console without touching the controller,
 # PKI, identities, tunnel or credentials. No Cloudflare token is needed.
+# Console access (cloudflare / ziti / both) is kept as deployed, read from .env;
+# change it with a full redeploy (deploy-ziti.sh --console-access).
 # ==============================================================================
 - name: Refresh OpenZiti Admin Console
   hosts: all
@@ -53,7 +55,17 @@
           {{ (_env_text | regex_search("(?m)^CLOUDFLARE_DNS_API_TOKEN='?(.*?)'?$", '\1') | default([''], true) | first) | trim }}
         ziti_advertise_address: >-
           {{ (_env_text | regex_search("(?m)^OPENZITI_ADVERTISE_ADDRESS='?(.*?)'?$", '\1') | default(['ziti-controller.local'], true) | first) | trim }}
+        # Deployments from before console access was configurable have no CONSOLE_ACCESS line.
+        console_access: >-
+          {{ (_env_text | regex_search("(?m)^CONSOLE_ACCESS='?(.*?)'?$", '\1') | default(['cloudflare'], true) | first) | trim }}
       no_log: true
+
+    - name: Validate console access read from .env
+      ansible.builtin.assert:
+        that:
+          - console_access in ['cloudflare', 'ziti', 'both']
+        fail_msg: "Unexpected CONSOLE_ACCESS '{{ console_access }}' in {{ ziti_install_dir }}/.env."
+        quiet: true
 
     - name: Compute DDNS flag from existing .env
       ansible.builtin.set_fact:

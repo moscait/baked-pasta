@@ -89,6 +89,14 @@ $(foreach app,$(APPS),$(eval $(call APP_RULES,$(app))))
 CONSOLE ?= $(or $(BAKED_PASTA_CONSOLE),zac)
 CONSOLE_ENV = BAKED_PASTA_CONSOLE='$(CONSOLE)' $(if $(BPC_DIR),BPC_DIR='$(BPC_DIR)',) $(if $(BPC_ZIP),BPC_ZIP='$(BPC_ZIP)',)
 
+# How admins reach the Configuration 2 console (deploy-ziti.sh --console-access):
+#   cloudflare  Cloudflare Tunnel + Access (default)
+#   ziti        only over the OpenZiti overlay, as http://console.ziti/ (no Cloudflare Tunnel)
+#   both        either way
+# Example: make ziti-ssh TARGET=user@host ADVERTISE=ziti.example.com ACCESS=ziti
+ACCESS ?= $(or $(BAKED_PASTA_CONSOLE_ACCESS),cloudflare)
+ACCESS_ENV = BAKED_PASTA_CONSOLE_ACCESS='$(ACCESS)'
+
 # Install the selected console (or build the local Vaadin image when BPC_DIR is set).
 # Kept as is when that console is already installed; FORCE=1 replaces it.
 .PHONY: sandbox-console
@@ -125,11 +133,11 @@ sandbox-status:
 # ==============================================================================
 # Mode B: Routable OpenZiti Infrastructure (Edge Controller, Router, Console via Cloudflare)
 # ==============================================================================
-.PHONY: ziti-deploy ziti-check-token ziti-ssh ziti-teardown ziti-up ziti-down ziti-logs ziti-status console-fetch console-build console-update
+.PHONY: ziti-deploy ziti-check-token ziti-ssh ziti-admin-token ziti-teardown ziti-up ziti-down ziti-logs ziti-status console-fetch console-build console-update
 
 ziti-deploy:
 	@echo "==> Running automated OpenZiti Zero-Trust Infrastructure deployment..."
-	@$(CONSOLE_ENV) ./deploy-ziti.sh
+	@$(CONSOLE_ENV) $(ACCESS_ENV) ./deploy-ziti.sh
 
 # Decode CLOUDFLARE_TUNNEL_TOKEN locally and print the tunnel ID it belongs to (deploys nothing).
 ziti-check-token:
@@ -137,14 +145,24 @@ ziti-check-token:
 
 ziti-ssh:
 	@if [ -z "$(TARGET)" ]; then \
-		echo "Usage: make ziti-ssh TARGET=user@host [TOKEN=eyJh...] [ADVERTISE=ziti.example.com] [DNS_TOKEN=cf_dns_tok] [USER=admin] [PASSWORD=secret] [QUICK=1]" && \
+		echo "Usage: make ziti-ssh TARGET=user@host [TOKEN=eyJh...] [ADVERTISE=ziti.example.com] [DNS_TOKEN=cf_dns_tok] [USER=admin] [PASSWORD=secret] [QUICK=1] [ACCESS=cloudflare|ziti|both]" && \
 		echo "       Prefer exporting CLOUDFLARE_TUNNEL_TOKEN / CLOUDFLARE_DNS_API_TOKEN / OPENZITI_ADMIN_PASSWORD" && \
 		echo "       instead of TOKEN=/DNS_TOKEN=/PASSWORD= (make arguments are visible in ps)." && exit 1; \
 	fi
 	@$(if $(TOKEN),CLOUDFLARE_TUNNEL_TOKEN='$(TOKEN)',) \
 	 $(if $(DNS_TOKEN),CLOUDFLARE_DNS_API_TOKEN='$(DNS_TOKEN)',) \
 	 $(if $(PASSWORD),OPENZITI_ADMIN_PASSWORD='$(PASSWORD)',) \
-	 $(CONSOLE_ENV) ./deploy-ziti.sh --ssh '$(TARGET)' $(if $(ADVERTISE),--advertise-address '$(ADVERTISE)',) $(if $(filter command line,$(origin USER)),-u '$(USER)',) $(if $(QUICK),--quick,)
+	 $(CONSOLE_ENV) $(ACCESS_ENV) ./deploy-ziti.sh --ssh '$(TARGET)' $(if $(ADVERTISE),--advertise-address '$(ADVERTISE)',) $(if $(filter command line,$(origin USER)),-u '$(USER)',) $(if $(QUICK),--quick,)
+
+# Copy the first admin device's enrollment token (ACCESS=ziti or both) from the host to
+# ./console-admin.jwt (mode 0600, git-ignored), then enroll it in a Ziti client (Ziti Desktop
+# Edge, ziti-edge-tunnel) and open http://console.ziti/. Needs passwordless sudo on the host.
+ziti-admin-token:
+	@if [ -z "$(TARGET)" ]; then echo "Usage: make ziti-admin-token TARGET=user@host" && exit 1; fi
+	@umask 077 && ssh '$(TARGET)' 'sudo -n cat /opt/openziti/console-admin/console-admin.jwt' > console-admin.jwt.tmp \
+		&& mv console-admin.jwt.tmp console-admin.jwt \
+		&& echo "==> Saved console-admin.jwt (valid 24 hours from the last deploy). Enroll it, then delete the file." \
+		|| { rm -f console-admin.jwt.tmp; echo "No token on $(TARGET): console-admin may already be enrolled, or console access over OpenZiti is off. Redeploy to issue a new one."; exit 1; }
 
 # Pin a Baked Pasta Console release (checks it against GitHub's checksum and updates the pin in
 # scripts/fetch-console.sh, NOTICE and README.md). Review and commit, then deploy as usual.
@@ -176,7 +194,10 @@ ziti-teardown:
 	fi
 	@./deploy-ziti.sh --ssh $(TARGET) --teardown $(if $(KEEP_DATA),--keep-data,) $(if $(YES),--yes,)
 
+# The manual stack always serves the console through Cloudflare. For ACCESS=ziti or both, deploy
+# with deploy-ziti.sh (make ziti-deploy / ziti-ssh), which also creates the OpenZiti service.
 ziti-up:
+	@if [ "$(ACCESS)" != cloudflare ]; then echo "make ziti-up supports only ACCESS=cloudflare; use make ziti-deploy or ziti-ssh for ACCESS=$(ACCESS)." && exit 1; fi
 	@echo "==> Starting OpenZiti Infrastructure stack (console: $(CONSOLE))..."
 ifeq ($(CONSOLE),bpc-vaadin)
 	@CONSOLE_NGINX_CONF=default.vaadin.conf docker compose -f infrastructure/docker-compose.cloudflare.yaml --profile vaadin up -d
