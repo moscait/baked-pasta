@@ -3,7 +3,7 @@
 *A clear, approachable guide to Zero Trust networking — no cybersecurity degree required.*
 
 > [!TIP]
-> **Presenting this to a team?** Open the interactive **[Browser Slide Show](why-openziti-slides.html)** directly in any web browser (supports keyboard arrows, fullscreen `F`, slide grid `G`, speaker notes `N`, and light/dark mode `T`).
+> **Presenting this to a team?** Launch the live **[Browser Slide Show](https://moscait.github.io/baked-pasta/docs/why-openziti-slides.html)** (or open [`docs/why-openziti-slides.html`](why-openziti-slides.html) locally offline). Supports keyboard arrows, fullscreen `F`, slide grid `G`, speaker notes `N`, and light/dark mode `T`.
 
 ---
 
@@ -140,4 +140,4 @@ This repository (**Baked Pasta**) includes a self-contained local sandbox that l
 make sandbox-up
 ```
 
-See the [README](../README.md) for the quickstart, or launch the **[Browser Slide Show](why-openziti-slides.html)** to walk your team through these concepts in presentation mode.
+See the [README](../README.md) for the quickstart, or launch the live **[Browser Slide Show](https://moscait.github.io/baked-pasta/docs/why-openziti-slides.html)** to walk your team through these concepts in presentation mode.

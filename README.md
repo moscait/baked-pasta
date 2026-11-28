@@ -7,6 +7,8 @@
 
 Everything ziti needs, layered and baked: zero-trust architecture and demo environments built on [OpenZiti](https://openziti.io).
 
+> **New to OpenZiti?** Read **[Why Use OpenZiti?](docs/WHY-OPENZITI.md)** or present it live in your browser with the **[interactive slide show](https://moscait.github.io/baked-pasta/docs/why-openziti-slides.html)** (also works offline from [`docs/why-openziti-slides.html`](docs/why-openziti-slides.html)).
+
 > [!NOTE]
 > Both configurations run OpenZiti's `quickstart` container image, which bundles a single controller and edge router with an automatically generated PKI. This project is intended for demos, evaluation and small self-hosted use. It is not a highly available production deployment.
 
@@ -240,6 +242,8 @@ Setting `BAKED_PASTA_CONSOLE=bpc` in your environment makes BPC the default. Swi
 ├── assets/logo/                  # Logo, wordmark and GitHub social preview (built by scripts/logo/)
 ├── assets/diagrams/              # README architecture diagrams, light & dark (built by scripts/diagrams/)
 ├── scripts/                      # Console fetch & build, logo and diagram generators, console demo
+├── docs/WHY-OPENZITI.md          # Non-technical overview of OpenZiti benefits with diagrams
+├── docs/why-openziti-slides.html # Standalone browser slide-show deck for presenting Why Use OpenZiti
 ├── docs/DECISIONS.md             # Why things are built this way, and when to revisit each decision
 ├── docker-compose.yaml           # Configuration 1: Local sandbox compose definition
 ├── deploy-ziti.sh                # Workstation CLI for streaming infrastructure deployments over SSH
